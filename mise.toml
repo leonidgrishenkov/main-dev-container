@@ -1,0 +1,24 @@
+[tools]
+node = "24.11"
+neovim = "0.11"
+fzf = "0.66"
+ripgrep = "15.1"
+bat = "0.26.0"
+btop = "1.4"
+yazi = "25.5"
+starship = "1.24"
+delta = "0.18"
+lazygit = "0.56"
+atuin = "18.10"
+fd = "10.3"
+zoxide = "latest"
+eza = "latest"
+vivid = "latest"
+
+[settings]
+verbose = true        # set to true to see full installation output, see `MISE_VERBOSE`
+http_timeout = "30s"  # set the timeout for http requests as duration string, see `MISE_HTTP_TIMEOUT`
+jobs = 6              # number of plugins or runtimes to install in parallel. The default is `4`.
+
+experimental = false  # enable experimental features
+
