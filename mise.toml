@@ -11,9 +11,9 @@ delta = "0.18"
 lazygit = "0.56"
 atuin = "18.10"
 fd = "10.3"
-zoxide = "latest"
-eza = "latest"
-vivid = "latest"
+zoxide = "0.9.8"
+eza = "0.23.4"
+vivid = "0.10.1"
 
 [settings]
 verbose = true        # set to true to see full installation output, see `MISE_VERBOSE`
