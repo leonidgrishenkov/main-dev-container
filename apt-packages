@@ -1,0 +1,9 @@
+sudo=1.9.*
+curl=8.14.*
+git=1:2.47.*
+ca-certificates=2025*
+zsh=5.9*
+locales=2.4*
+gnupg=2.4.*
+stow=2.4.*
+gcc=4:14.*
