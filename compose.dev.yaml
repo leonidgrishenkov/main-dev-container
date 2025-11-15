@@ -1,0 +1,14 @@
+services:
+  dev:
+    build:
+      dockerfile: dev2.Dockerfile
+      context: .
+    environment:
+      - USER_ID=${USER_ID}
+      - GROUP_ID=${GROUP_ID}
+      - USERNAME=${USERNAME}
+    container_name: devcr
+    volumes:
+      - ./test:/app
+    command: ["tail", "-f", "/dev/null"]
+    restart: no
