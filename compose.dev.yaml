@@ -1,7 +1,7 @@
 services:
   dev:
     build:
-      dockerfile: dev2.Dockerfile
+      dockerfile: ./Dockerfile
       context: .
     environment:
       - USER_ID=${USER_ID}
@@ -9,6 +9,6 @@ services:
       - USERNAME=${USERNAME}
     container_name: devcr
     volumes:
-      - ./test:/app
+      - ./src:/app
     command: ["tail", "-f", "/dev/null"]
     restart: no

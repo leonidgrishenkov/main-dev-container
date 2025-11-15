@@ -17,7 +17,7 @@ RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 TZ=UTC
 
-RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 RUN groupadd -g 1000 devels \
     && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
