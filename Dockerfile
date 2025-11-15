@@ -5,6 +5,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 USER root
 
 COPY ./apt-packages /tmp/apt-packages
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
 RUN apt-get update \
     && xargs -a /tmp/apt-packages apt-get install -y --no-install-recommends \
@@ -17,38 +18,7 @@ RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV TZ=UTC
 
-RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+ENTRYPOINT ["/entrypoint.sh"]
 
-RUN groupadd -g 1000 devs \
-    && useradd -m -u 1000 -G sudo,devs -s /usr/bin/zsh dev \
-    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
-    && chmod 0440 /etc/sudoers.d/dev
+SHELL ["/bin/bash", "-c"]
 
-# переиспользовать staff группу?
-RUN useradd -m -G sudo,staff -s /usr/bin/zsh dev \
-    && mkdir -p /etc/sudoers.d \
-    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
-    && chmod 0440 /etc/sudoers.d/dev
-
-USER dev
-ENV HOME=/home/dev
-SHELL ["/usr/bin/zsh", "-c"]
-
-RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
-
-WORKDIR $HOME/dotfiles
-RUN stow atuin delta fsh git ipython lazydocker nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
-
-COPY --chown=dev:devs ./mise.toml $HOME/.config/mise/config.toml
-
-RUN mise install
-
-RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh \
-    && fast-theme XDG:catppuccin-frappe \
-    && bat cache --build
-
-USER dev
-WORKDIR /home/dev
-ENV TERM=xterm-256color
-
-SHELL ["/usr/bin/zsh", "-c"]
