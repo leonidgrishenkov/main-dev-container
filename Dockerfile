@@ -24,6 +24,12 @@ RUN groupadd -g 1000 devs \
     && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
     && chmod 0440 /etc/sudoers.d/dev
 
+# переиспользовать staff группу?
+RUN useradd -m -G sudo,staff -s /usr/bin/zsh dev \
+    && mkdir -p /etc/sudoers.d \
+    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
+    && chmod 0440 /etc/sudoers.d/dev
+
 USER dev
 ENV HOME=/home/dev
 SHELL ["/usr/bin/zsh", "-c"]
