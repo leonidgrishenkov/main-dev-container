@@ -26,20 +26,25 @@ RUN groupadd -g 1000 devs \
 
 USER dev
 ENV HOME=/home/dev
-SHELL ["/usr/bin/zsh", "-c"]
+SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
 
 WORKDIR $HOME/dotfiles
-RUN stow atuin delta fsh git ipython lazydocker nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
+RUN stow atuin delta fsh git ipython nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
 
 COPY --chown=dev:devs ./mise.toml $HOME/.config/mise/config.toml
 
-RUN mise install
+RUN mise install \
+    && eval "$(mise activate zsh)"
 
-RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh \
-    && fast-theme XDG:catppuccin-frappe \
-    && bat cache --build
+RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
+
+RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
+    && fast-theme XDG:catppuccin-frappe
+
+# BUG: for some reason zsh can't find bat at this point
+# RUN bat cache --build
 
 USER dev
 WORKDIR /home/dev
