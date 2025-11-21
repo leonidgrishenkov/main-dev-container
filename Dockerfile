@@ -25,7 +25,10 @@ RUN groupadd -g 1000 devs \
     && chmod 0440 /etc/sudoers.d/dev
 
 USER dev
+
 ENV HOME=/home/dev
+ENV TERM=xterm-256color
+
 SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
@@ -46,8 +49,6 @@ RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plug
 # BUG: for some reason zsh can't find bat at this point
 # RUN bat cache --build
 
-USER dev
 WORKDIR /home/dev
-ENV TERM=xterm-256color
 
 SHELL ["/usr/bin/zsh", "-c"]
