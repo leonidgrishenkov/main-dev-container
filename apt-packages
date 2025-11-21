@@ -7,3 +7,6 @@ locales=2.4*
 gnupg=2.4.*
 stow=2.4.*
 gcc=4:14.*
+wget=1.25.*
+build-essential=12.12
+unzip=6.0-*
