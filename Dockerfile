@@ -1,5 +1,5 @@
 # debian:trixie-20251103
-FROM docker.io/debian@sha256:01a723bf5bfb21b9dda0c9a33e0538106e4d02cce8f557e118dd61259553d598
+FROM docker.io/debian@sha256:01a723bf5bfb21b9dda0c9a33e0538106e4d02cce8f557e118dd61259553d598 AS base
 
 USER root
 
@@ -39,15 +39,22 @@ RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
 WORKDIR $HOME/dotfiles
 RUN stow atuin delta fsh git ipython nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
 
+# Install tools with mise.
 COPY --chown=dev:devs ./mise.toml $HOME/.config/mise/config.toml
+RUN mise install
 
-RUN mise install \
-    && eval "$(mise activate zsh)"
+# Add mise shims to PATH so tools are available in subsequent RUN commands
+ENV PATH="$HOME/.local/share/mise/shims:$PATH"
 
+# Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
 RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
 
+# Set desired ZSH syntax theme.
 RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
     && fast-theme XDG:catppuccin-frappe
+
+# Install lazyvim plugins, mason tools and treesitter parsers.
+RUN mise exec -- nvim --headless -c 'Lazy! sync' -c "qall"
 
 # BUG: for some reason zsh can't find bat at this point
 # RUN bat cache --build
