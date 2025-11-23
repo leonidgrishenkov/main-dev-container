@@ -8,8 +8,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install system packages with apt cache mount
 COPY ./apt-packages /tmp/apt-packages
-RUN apt-get update \
-    && xargs -a /tmp/apt-packages apt-get install -y --no-install-recommends \
+RUN apt-get update -q \
+    && xargs -a /tmp/apt-packages apt-get install -y --no-install-recommends -q \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm /tmp/apt-packages
@@ -37,7 +37,7 @@ SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 # Install tools with mise.
 COPY --chown=dev:devs ./mise.toml $HOME/.config/mise/config.toml
 
-RUN mise install
+RUN mise install -y
 
 # Stow dotfiles.
 RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
@@ -54,7 +54,7 @@ RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plug
 # Install lazyvim plugins, mason tools and treesitter parsers.
 RUN  mise reshim \
     && export PATH="$HOME/.local/share/mise/shims:$PATH" \
-    && nvim --headless -c 'Lazy! sync' -c "qall" \
+    && nvim --headless -c 'Lazy sync' -c "qall" \
     && bat cache --build
 
 WORKDIR /home/dev
