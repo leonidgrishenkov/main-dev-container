@@ -16,8 +16,7 @@ RUN apt-get update -q \
 
 RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
-ENV LANG=en_US.UTF-8
-ENV TZ=UTC
+ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 TZ=UTC
 
 # Install mise with cache mount for downloads
 RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
@@ -30,8 +29,7 @@ RUN groupadd -g 1000 devs \
 
 USER dev
 
-ENV HOME=/home/dev
-ENV TERM=xterm-256color
+ENV HOME=/home/dev TERM=xterm-256color
 SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 # Install tools with mise.
