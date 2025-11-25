@@ -57,3 +57,5 @@ RUN  mise reshim \
 
 WORKDIR /home/dev
 SHELL ["/usr/bin/zsh", "-c"]
+
+CMD ["tail", "-f", "/dev/null"]
