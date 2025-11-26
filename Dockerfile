@@ -6,7 +6,6 @@ USER root
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Install system packages with apt cache mount
 COPY ./apt-packages /tmp/apt-packages
 RUN apt-get update -q \
     && xargs -a /tmp/apt-packages apt-get install -y --no-install-recommends -q \
@@ -18,10 +17,8 @@ RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 TZ=UTC
 
-# Install mise with cache mount for downloads
 RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
-# Create user
 RUN groupadd -g 1000 devs \
     && useradd -m -u 1000 -G sudo,devs -s /usr/bin/zsh dev \
     && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
