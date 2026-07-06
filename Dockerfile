@@ -29,6 +29,8 @@ RUN groupadd -g 1000 devel \
     && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
     && chmod 0440 /etc/sudoers.d/devel
 
+RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}"
+
 USER devel
 
 ENV HOME=/home/devel TERM=xterm-256color DOTFILES_DIR=/dotfiles
@@ -40,7 +42,6 @@ COPY --chown=devel:devel ./mise.toml $HOME/.config/mise/config.toml
 RUN mise install -y
 
 # Stow dotfiles.
-RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git ${DOTFILES_DIR}
 WORKDIR ${DOTFILES_DIR}
 RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig pi
 
