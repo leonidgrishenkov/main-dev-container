@@ -10,7 +10,7 @@ services:
     container_name: devcr
     init: true
     volumes:
-      - ./src:/home/devel/work
-    working_dir: /home/devel/work
+      - ./:/home/devel/repo
+    working_dir: /home/devel/repo
     command: ["tail", "-f", "/dev/null"]
     restart: "no"
