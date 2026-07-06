@@ -22,8 +22,8 @@ RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 # Provision the full dev environment into a build-time user's home.
 # At runtime the entrypoint hands this home to whatever UID/GID the host
 # passes in, so mounted files keep correct ownership.
-RUN groupadd -g 1000 devels \
-    && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
+RUN groupadd -g 1000 devel \
+    && useradd -m -u 1000 -g 1000 -G sudo -s /usr/bin/zsh devel \
     && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
     && chmod 0440 /etc/sudoers.d/devel
 
@@ -33,7 +33,7 @@ ENV HOME=/home/devel TERM=xterm-256color
 SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 # Install tools with mise.
-COPY --chown=devel:devels ./mise.toml $HOME/.config/mise/config.toml
+COPY --chown=devel:devel ./mise.toml $HOME/.config/mise/config.toml
 
 RUN mise install -y
 

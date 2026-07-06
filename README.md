@@ -4,7 +4,7 @@ This is a main image based on Debian Trixie for development purposes with some a
 
 # How to run container
 
-Run container with host user:
+Run with your host identity so mounted files keep correct ownership:
 
 ```sh
 docker run -it --rm \
