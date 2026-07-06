@@ -1,10 +1,9 @@
 [tools]
 node = "24.11"
-neovim = "0.11"
+neovim = "0.12.3"
 fzf = "0.66"
 ripgrep = "15.1"
 bat = "0.26.0"
-btop = "1.4"
 yazi = "25.5"
 starship = "1.24"
 delta = "0.18"
@@ -15,6 +14,7 @@ zoxide = "0.9.8"
 eza = "0.23.4"
 vivid = "0.10.1"
 tree-sitter = "0.25.10"
+pi= "0.80.3"
 
 [settings]
 verbose = false        # set to true to see full installation output, see `MISE_VERBOSE`

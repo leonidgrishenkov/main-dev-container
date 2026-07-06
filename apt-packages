@@ -10,3 +10,4 @@ stow=2.4.*
 wget=1.25.*
 build-essential=12.12*
 unzip=6.0-*
+less=668-*
