@@ -40,7 +40,7 @@ RUN mise install -y
 # Stow dotfiles.
 RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
 WORKDIR $HOME/dotfiles
-RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig
+RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig pi
 
 # Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
 RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
