@@ -4,11 +4,12 @@ services:
       dockerfile: ./Dockerfile
       context: .
     environment:
-      - USER_ID=${USER_ID}
-      - GROUP_ID=${GROUP_ID}
-      - USERNAME=${USERNAME}
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+      - USERNAME=${USERNAME:-devuser}
     container_name: devcr
+    init: true
     volumes:
       - ./src:/app
     command: ["tail", "-f", "/dev/null"]
-    restart: no
+    restart: "no"
