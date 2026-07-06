@@ -29,6 +29,7 @@ RUN groupadd -g 1000 devel \
     && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
     && chmod 0440 /etc/sudoers.d/devel
 
+ENV DOTFILES_DIR=/dotfiles
 RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}"
 
 USER devel
