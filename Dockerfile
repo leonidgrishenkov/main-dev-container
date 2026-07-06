@@ -19,18 +19,18 @@ ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 TZ=UTC
 
 RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
-RUN groupadd -g 1000 devs \
-    && useradd -m -u 1000 -G sudo,devs -s /usr/bin/zsh dev \
-    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
-    && chmod 0440 /etc/sudoers.d/dev
+RUN groupadd -g 1000 devels \
+    && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
+    && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
+    && chmod 0440 /etc/sudoers.d/devel
 
-USER dev
+USER devel
 
-ENV HOME=/home/dev TERM=xterm-256color
+ENV HOME=/home/devel TERM=xterm-256color
 SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 # Install tools with mise.
-COPY --chown=dev:devs ./mise.toml $HOME/.config/mise/config.toml
+COPY --chown=devel:devels ./mise.toml $HOME/.config/mise/config.toml
 
 RUN mise install -y
 
@@ -52,7 +52,7 @@ RUN  mise reshim \
     && nvim --headless -c 'Lazy sync' -c "qall" \
     && bat cache --build
 
-WORKDIR /home/dev
+WORKDIR /home/devel
 SHELL ["/usr/bin/zsh", "-c"]
 
 CMD ["tail", "-f", "/dev/null"]
