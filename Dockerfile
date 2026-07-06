@@ -17,7 +17,48 @@ RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 TZ=UTC
 
-ENTRYPOINT ["/entrypoint.sh"]
+RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+
+# Provision the full dev environment into a build-time user's home.
+# At runtime the entrypoint hands this home to whatever UID/GID the host
+# passes in, so mounted files keep correct ownership.
+RUN groupadd -g 1000 devels \
+    && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
+    && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
+    && chmod 0440 /etc/sudoers.d/devel
+
+USER devel
+
+ENV HOME=/home/devel TERM=xterm-256color
+SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
+
+# Install tools with mise.
+COPY --chown=devel:devels ./mise.toml $HOME/.config/mise/config.toml
+
+RUN mise install -y
+
+# Stow dotfiles.
+RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
+WORKDIR $HOME/dotfiles
+RUN stow atuin delta fsh git ipython nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
+
+# Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
+RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
+
+# Set desired ZSH syntax theme.
+RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
+    && fast-theme XDG:catppuccin-frappe
+
+# Install lazyvim plugins, mason tools and treesitter parsers.
+RUN  mise reshim \
+    && export PATH="$HOME/.local/share/mise/shims:$PATH" \
+    && nvim --headless -c 'Lazy sync' -c "qall" \
+    && bat cache --build
+
+# Back to root so the entrypoint can adjust the runtime user before dropping
+# privileges with gosu.
+USER root
+WORKDIR /home/devel
 
 RUN groupadd -g 1000 devels \
     && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
