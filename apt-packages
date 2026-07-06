@@ -1,4 +1,5 @@
 sudo=1.9.*
+gosu=1.17*
 curl=8.14.*
 ca-certificates=2025*
 locales=2.4*
