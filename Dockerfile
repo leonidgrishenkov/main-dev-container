@@ -31,7 +31,7 @@ RUN groupadd -g 1000 devel \
 
 USER devel
 
-ENV HOME=/home/devel TERM=xterm-256color
+ENV HOME=/home/devel TERM=xterm-256color DOTFILES_DIR=/dotfiles
 SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 # Install tools with mise.
@@ -40,12 +40,12 @@ COPY --chown=devel:devel ./mise.toml $HOME/.config/mise/config.toml
 RUN mise install -y
 
 # Stow dotfiles.
-RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
-WORKDIR $HOME/dotfiles
+RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git ${DOTFILES_DIR}
+WORKDIR ${DOTFILES_DIR}
 RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig pi
 
 # Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
-RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
+RUN source ${DOTFILES_DIR}/scripts/deb/install/zsh-plugins.sh
 
 # Set desired ZSH syntax theme.
 RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
