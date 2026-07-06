@@ -6,7 +6,7 @@ services:
     environment:
       - USER_ID=${USER_ID:-1000}
       - GROUP_ID=${GROUP_ID:-1000}
-      - USERNAME=${USERNAME:-devuser}
+      - USERNAME=${USERNAME:-devel}
     container_name: devcr
     init: true
     volumes:
