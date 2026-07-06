@@ -52,10 +52,12 @@ RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plug
     && fast-theme XDG:catppuccin-frappe
 
 # Install lazyvim plugins, mason tools and treesitter parsers.
-RUN  mise reshim \
+RUN mise reshim \
     && export PATH="$HOME/.local/share/mise/shims:$PATH" \
     && nvim --headless -c 'Lazy sync' -c "qall" \
-    && bat cache --build
+    && bat cache --build \
+    && pi install git:github.com/leonidgrishenkov/pi-extensions \
+    && pi install git:github.com/leonidgrishenkov/agent-skills
 
 # Back to root so the entrypoint can adjust the runtime user before dropping
 # privileges with gosu.
