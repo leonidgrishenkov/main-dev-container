@@ -3,14 +3,14 @@ services:
     build:
       dockerfile: ./Dockerfile
       context: .
-    environment:
-      - USER_ID=${USER_ID:-1000}
-      - GROUP_ID=${GROUP_ID:-1000}
-      - USERNAME=${USERNAME:-devel}
+    # environment:
+      # - USER_ID=${USER_ID:-1000}
+      # - GROUP_ID=${GROUP_ID:-1000}
+      # - USERNAME=${USERNAME:-devel}
     container_name: devcr
-    init: true
-    volumes:
-      - ./:/home/devel/repo
-    working_dir: /home/devel/repo
+    # init: true
+    # volumes:
+    #   - ./:/home/devel/repo
+    # working_dir: /home/devel/repo
     command: ["tail", "-f", "/dev/null"]
     restart: "no"
