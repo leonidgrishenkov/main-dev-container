@@ -17,6 +17,25 @@ ARG MISE_VERSION=v2026.7.3
 COPY --chown=root:root --chmod=644 ./mise.toml /etc/mise/config.toml
 RUN curl -fsSL https://mise.run \
     | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
-    && mise install --system --yes
+    && mise install --system --yes \
+    && mise cache clear
+
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=devel
+
+RUN groupadd -g ${GROUP_ID} ${USERNAME} \
+    && useradd -l -m -u ${USER_ID} -g ${GROUP_ID} -G sudo -s /usr/bin/zsh ${USERNAME} \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME} \
+    && rm -f /var/log/lastlog /var/log/faillog
+
+ENV HOME=/home/${USERNAME}
+ENV DOTFILES_DIR=${HOME}/dotfiles
+
+# # cd dotfiles
+# RUN task stow-essential \
+#     && task install-zsh-plugins \
+#     && task cli-themes
 
 CMD ["zsh"]
