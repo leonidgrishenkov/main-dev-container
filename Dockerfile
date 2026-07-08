@@ -33,9 +33,14 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} \
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
 
-# # cd dotfiles
-# RUN task stow-essential \
-#     && task install-zsh-plugins \
-#     && task cli-themes
+USER ${USERNAME}
 
+WORKDIR ${DOTFILES_DIR}
+RUN git clone -q --depth=1 https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}" \
+    && eval "$(mise activate)" \
+    && task stow-essential \
+    && task install-zsh-plugins \
+    && task cli-themes
+
+WORKDIR ${HOME}
 CMD ["zsh"]
