@@ -94,9 +94,10 @@ RUN  mise reshim \
 WORKDIR /home/devel
 SHELL ["/usr/bin/zsh", "-c"]
 
+ENV XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
 RUN git clone -q --depth=1 https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}" \
-    && eval "$(mise activate)" \
+    && eval "$(mise hook-env)" \
     && task stow-essential \
     && task install-zsh-plugins \
     && task cli-themes
