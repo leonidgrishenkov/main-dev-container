@@ -46,8 +46,7 @@ RUN mise install -y
 WORKDIR ${DOTFILES_DIR}
 RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig pi
 
-# Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
-RUN source ${DOTFILES_DIR}/scripts/deb/install/zsh-plugins.sh
+RUN task install-zsh-plugins
 
 # Set desired ZSH syntax theme.
 RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
