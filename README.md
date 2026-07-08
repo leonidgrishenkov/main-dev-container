@@ -11,6 +11,39 @@ UID/GID you pass in, so bind-mounted files keep the correct ownership while the
 pre-built environment stays intact. Privileges are dropped from root to that
 user with `gosu`.
 
+# Build
+
+The image is built in two stages:
+
+- **`dev-builder`** — installs `build-essential`, compiles everything (mise
+  tools, nvim plugins + treesitter parsers, zsh plugins, pi extensions) into
+  `/home/devel`, and strips caches/`.git` history inside each layer.
+- **`runtime`** — a slim final image with only the runtime apt set (no
+  `build-essential`) plus the pinned `mise` binary and the fully provisioned
+  `/home/devel` copied across.
+
+Notable build properties:
+
+- **mise is pinned** via the `MISE_VERSION` build arg (default `v2026.7.3`),
+  so `mise.run` doesn't grab the latest mise on every build. Override with
+  `docker build --build-arg MISE_VERSION=vX.Y.Z`.
+- **Dotfiles are shallow-cloned** (`--depth=1`) and their `.git` is dropped in
+  the same layer.
+- **Caches are cleaned in the layer that creates them** — `mise cache clear`,
+  `~/.local/share/mise/downloads`, npm/pip caches, Lazy plugin `.git` dirs, and
+  `pi install git:` `.git` dirs never survive into a layer.
+- **Tool installs are grouped into cache-friendly units** so a change to the pi
+  extensions doesn't re-run the expensive nvim `Lazy sync` step.
+
+> [!IMPORTANT]
+> `build-essential` is **not** in the runtime image, so there is no C compiler
+> available at runtime. Common treesitter parsers are pre-compiled during the
+> build; opening a file whose parser isn't pre-compiled will log a `cc: command
+> not found` warning (treesitter just won't be used for that language — it's
+> non-fatal). If you need arbitrary runtime parser compilation or Mason tools
+> that build from source, add `gcc`/`build-essential` back to the runtime apt
+> set in the final stage.
+
 # How to run container
 
 Run with your host identity so mounted files keep correct ownership:
