@@ -17,6 +17,7 @@ ARG MISE_VERSION=v2026.7.3
 COPY --chown=root:root --chmod=644 ./mise.toml /etc/mise/config.toml
 RUN curl -fsSL https://mise.run \
     | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
+    && chmod 755 /etc/mise \
     && mise install --system --yes \
     && mise cache clear
 
@@ -35,9 +36,10 @@ ENV DOTFILES_DIR=${HOME}/dotfiles
 
 USER ${USERNAME}
 
+ENV XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
 RUN git clone -q --depth=1 https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}" \
-    && eval "$(mise activate)" \
+    && eval "$(mise hook-env)" \
     && task stow-essential \
     && task install-zsh-plugins \
     && task cli-themes
