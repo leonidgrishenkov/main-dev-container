@@ -94,4 +94,12 @@ RUN  mise reshim \
 WORKDIR /home/devel
 SHELL ["/usr/bin/zsh", "-c"]
 
+WORKDIR ${DOTFILES_DIR}
+RUN git clone -q --depth=1 https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}" \
+    && eval "$(mise activate)" \
+    && task stow-essential \
+    && task install-zsh-plugins \
+    && task cli-themes
+
+WORKDIR ${HOME}
 CMD ["zsh"]
