@@ -100,9 +100,8 @@ WORKDIR ${DOTFILES_DIR}
 
 RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials pi:install \
-    && bat cache --build \
-    && nvim --headless "+Lazy! restore" +qa
+    && task stow:essentials pi:install nvim:install \
+    && bat cache --build
 
 WORKDIR ${HOME}
 SHELL ["/usr/local/bin/fish"]
