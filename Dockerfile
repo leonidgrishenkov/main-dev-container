@@ -19,6 +19,8 @@ RUN curl -fsSL https://mise.run \
     | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
     && chmod 755 /etc/mise \
     && mise install --system --yes \
+    && ln -sf "$(mise where aqua:fish-shell/fish-shell)/fish" /usr/local/bin/fish \
+    && echo /usr/local/bin/fish >> /etc/shells \
     && mise cache clear
 
 ARG USER_ID=1000
@@ -26,12 +28,10 @@ ARG GROUP_ID=1000
 ARG USERNAME=devel
 
 RUN groupadd -g ${GROUP_ID} ${USERNAME} \
-    && useradd -l -m -u ${USER_ID} -g ${GROUP_ID} -G sudo -s /usr/bin/zsh ${USERNAME} \
+    && useradd -l -m -u ${USER_ID} -g ${GROUP_ID} -G sudo -s /usr/local/bin/fish ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME} \
     && rm -f /var/log/lastlog /var/log/faillog
-
-SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
 
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
@@ -44,8 +44,9 @@ WORKDIR ${DOTFILES_DIR}
 
 RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials zsh:install-plugins pi:install \
+    && task stow:essentials pi:install \
     && bat cache --build
 
 WORKDIR ${HOME}
-CMD ["zsh"]
+SHELL ["/usr/local/bin/fish"]
+CMD ["fish"]
