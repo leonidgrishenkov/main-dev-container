@@ -94,13 +94,12 @@ RUN  mise reshim \
 WORKDIR /home/devel
 SHELL ["/usr/bin/zsh", "-c"]
 
+ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
 ENV XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
-RUN git clone -q --depth=1 https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}" \
+RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow-essential \
-    && task install-zsh-plugins \
-    && task cli-themes
+    && task stow:essentials zsh:install-plugins task zsh:cli-themes task pi:install
 
 WORKDIR ${HOME}
 CMD ["zsh"]
