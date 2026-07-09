@@ -97,9 +97,11 @@ SHELL ["/usr/bin/zsh", "-c"]
 ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
 ENV XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
+
 RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials zsh:install-plugins zsh:cli-themes pi:install
+    && task stow:essentials zsh:install-plugins pi:install \
+    && bat cache --build
 
 WORKDIR ${HOME}
 CMD ["zsh"]
