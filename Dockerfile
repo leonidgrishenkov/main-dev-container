@@ -31,6 +31,8 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME} \
     && rm -f /var/log/lastlog /var/log/faillog
 
+SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
+
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
 
@@ -39,9 +41,11 @@ USER ${USERNAME}
 ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
 ENV XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
+
 RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials zsh:install-plugins zsh:cli-themes pi:install
+    && task stow:essentials zsh:install-plugins pi:install \
+    && bat cache --build
 
 WORKDIR ${HOME}
 CMD ["zsh"]
