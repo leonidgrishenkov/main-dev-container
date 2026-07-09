@@ -100,8 +100,9 @@ WORKDIR ${DOTFILES_DIR}
 
 RUN git clone -q --depth=1 -b "feat/dev-container-integration" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials zsh:install-plugins pi:install \
+    && task stow:essentials pi:install \
     && bat cache --build
 
 WORKDIR ${HOME}
-CMD ["zsh"]
+SHELL ["/usr/local/bin/fish"]
+CMD ["fish"]
