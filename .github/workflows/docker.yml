@@ -24,7 +24,7 @@ jobs:
       id-token: write        # cosign keyless OIDC (push job)
     uses: leonidgrishenkov/github-actions/.github/workflows/docker.yaml@main
     with:
-      image-name: hello-docker
+      image-name: main-dev-container
       # smoke-test proves the binary runs in the final scratch image.
       smoke-test-args: "--version"
       # All other inputs (registry, platforms, provenance, sbom) use workflow defaults.
