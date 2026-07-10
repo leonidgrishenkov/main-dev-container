@@ -3,6 +3,8 @@ services:
     build:
       dockerfile: ./Dockerfile
       context: .
+    environment:
+      - TERM=${TERM}
     container_name: dev-container
     command: ["tail", "-f", "/dev/null"]
     restart: "no"

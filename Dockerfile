@@ -48,5 +48,7 @@ RUN git clone -q --depth=1 -b "main" --single-branch ${DOTFILES_REPO_URL} "${DOT
     && bat cache --build
 
 WORKDIR ${HOME}
+ENV TERM=xterm-256color
 SHELL ["/usr/local/bin/fish"]
+
 CMD ["fish"]
