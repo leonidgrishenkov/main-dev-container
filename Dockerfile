@@ -12,90 +12,34 @@ RUN apt-get update -q \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/apt-packages
 
-RUN curl -s https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+# Install mise and its packages system-wide
+ARG MISE_VERSION=v2026.7.3
+COPY --chown=root:root --chmod=644 ./mise.toml /etc/mise/config.toml
+RUN curl -fsSL https://mise.run \
+    | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
+    && chmod 755 /etc/mise \
+    && mise install --system --yes \
+    && ln -sf "$(mise where aqua:fish-shell/fish-shell)/fish" /usr/local/bin/fish \
+    && echo /usr/local/bin/fish >> /etc/shells \
+    && mise cache clear
 
-# Provision the full dev environment into a build-time user's home.
-# At runtime the entrypoint hands this home to whatever UID/GID the host
-# passes in, so mounted files keep correct ownership.
-RUN groupadd -g 1000 devel \
-    && useradd -m -u 1000 -g 1000 -G sudo -s /usr/bin/zsh devel \
-    && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
-    && chmod 0440 /etc/sudoers.d/devel
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=devel
 
-ENV DOTFILES_DIR=/dotfiles
-RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git "${DOTFILES_DIR}"
+RUN groupadd -g ${GROUP_ID} ${USERNAME} \
+    && useradd -l -m -u ${USER_ID} -g ${GROUP_ID} -G sudo -s /usr/local/bin/fish ${USERNAME} \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME} \
+    && rm -f /var/log/lastlog /var/log/faillog
 
-USER devel
+ENV HOME=/home/${USERNAME}
+ENV DOTFILES_DIR=${HOME}/dotfiles
 
-ENV HOME=/home/devel TERM=xterm-256color DOTFILES_DIR=/dotfiles
-SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
-
-# Install tools with mise.
-COPY --chown=devel:devel ./mise.toml $HOME/.config/mise/config.toml
-
-RUN mise install -y
-
-# Stow dotfiles.
-WORKDIR ${DOTFILES_DIR}
-RUN stow atuin delta fsh ipython nvim ruff starship yazi zsh bat prettier ripgrep yamlfmt glow editorconfig pi
-
-RUN task install-zsh-plugins
-
-# Set desired ZSH syntax theme.
-RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
-    && fast-theme XDG:catppuccin-frappe
-
-# Install lazyvim plugins, mason tools and treesitter parsers.
-RUN mise reshim \
-    && export PATH="$HOME/.local/share/mise/shims:$PATH" \
-    && nvim --headless -c 'Lazy sync' -c "qall" \
-    && bat cache --build \
-    && pi install git:github.com/leonidgrishenkov/pi-extensions \
-    && pi install git:github.com/leonidgrishenkov/agent-skills
-
-# Back to root so the entrypoint can adjust the runtime user before dropping
-# privileges with gosu.
-USER root
-WORKDIR /home/devel
-
-RUN groupadd -g 1000 devels \
-    && useradd -m -u 1000 -G sudo,devels -s /usr/bin/zsh devel \
-    && echo "devel ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devel \
-    && chmod 0440 /etc/sudoers.d/devel
-
-USER devel
-
-ENV HOME=/home/devel TERM=xterm-256color
-SHELL ["/usr/bin/zsh", "-euo", "pipefail", "-c"]
-
-# Install tools with mise.
-COPY --chown=devel:devels ./mise.toml $HOME/.config/mise/config.toml
-
-RUN mise install -y
-
-# Stow dotfiles.
-RUN git clone -q https://github.com/leonidgrishenkov/dotfiles.git $HOME/dotfiles
-WORKDIR $HOME/dotfiles
-RUN stow atuin delta fsh git ipython nvim ruff sqlfluff starship yazi zsh bat btop lazygit prettier ripgrep yamlfmt
-
-# Install ZSH plugins. I do this in separate step cuz in other case it fails for some reason.
-RUN source $HOME/dotfiles/scripts/deb/install/zsh-plugins.sh
-
-# Set desired ZSH syntax theme.
-RUN source $XDG_DATA_HOME/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
-    && fast-theme XDG:catppuccin-frappe
-
-# Install lazyvim plugins, mason tools and treesitter parsers.
-RUN  mise reshim \
-    && export PATH="$HOME/.local/share/mise/shims:$PATH" \
-    && nvim --headless -c 'Lazy sync' -c "qall" \
-    && bat cache --build
-
-WORKDIR /home/devel
-SHELL ["/usr/bin/zsh", "-c"]
+USER ${USERNAME}
 
 ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
-ENV XDG_DATA_HOME=${HOME}/.local/share
+ARG XDG_DATA_HOME=${HOME}/.local/share
 WORKDIR ${DOTFILES_DIR}
 
 RUN git clone -q --depth=1 -b "main" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
