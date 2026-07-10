@@ -1,4 +1,5 @@
 sudo=1.9.*
+gosu=1.17*
 curl=8.14.*
 git=1:2.47.*
 ca-certificates=2025*
@@ -9,3 +10,5 @@ stow=2.4.*
 wget=1.25.*
 build-essential=12.12*
 unzip=6.0-*
+less=668-*
+file=1:5.46*

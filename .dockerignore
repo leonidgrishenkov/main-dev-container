@@ -1,0 +1,27 @@
+.git
+.gitignore
+.gitmodules
+.gitattributes
+.github
+
+# Exclude node_modules (if using Node.js)
+node_modules/
+
+# Exclude environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Exclude log files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Exclude macOS-specific files
+.DS_Store
+*.appleDouble
+*.hal
+*.apdisk
