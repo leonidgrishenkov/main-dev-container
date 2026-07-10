@@ -11,3 +11,4 @@ wget=1.25.*
 build-essential=12.12*
 unzip=6.0-*
 less=668-*
+file=1:5.46*
