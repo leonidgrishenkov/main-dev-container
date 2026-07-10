@@ -12,10 +12,15 @@ RUN apt-get update -q \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/apt-packages
 
-# Install mise and its packages system-wide
 ARG MISE_VERSION=v2026.7.3
+ARG MISE_HTTP_TIMEOUT=60
+ARG MISE_HTTP_RETRIES=5
+ARG MISE_VERBOSE=true
+ARG MISE_JOBS=4
+
 COPY --chown=root:root --chmod=644 ./mise.toml /etc/mise/config.toml
-RUN curl -fsSL https://mise.run \
+RUN --mount=type=cache,id=mise-downloads,target=/root/.local/share/mise,sharing=locked \
+    curl -fsSL https://mise.run \
     | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
     && chmod 755 /etc/mise \
     && mise install --system --yes \
@@ -35,6 +40,7 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} \
 
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
+ENV TERM=xterm-256color
 
 USER ${USERNAME}
 
@@ -48,7 +54,6 @@ RUN git clone -q --depth=1 -b "main" --single-branch ${DOTFILES_REPO_URL} "${DOT
     && bat cache --build
 
 WORKDIR ${HOME}
-ENV TERM=xterm-256color
 SHELL ["/usr/local/bin/fish"]
 
 CMD ["fish"]
