@@ -1,0 +1,30 @@
+# Calls the shared reusable docker workflow in leonidgrishenkov/github-actions.
+#
+# Builds, scans, and pushes the hello-docker image to Yandex Container Registry.
+name: Pre-release Docker Image
+
+on:
+  # Runs only for PR into main and any non-main branches
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+
+# Required caller permissions: the reusable workflow's jobs may only use a
+# *subset* of what the caller grants (permissions can't be elevated across
+# the reusable-workflow boundary). Grant the union here; the called workflow
+# narrows per job (lint -> read; scan -> read+security-events; push -> read+id-token).
+
+jobs:
+  docker:
+    permissions:
+      contents: read        # checkout
+      security-events: write # Trivy SARIF -> Code Scanning (scan job)
+      id-token: write        # cosign keyless OIDC (push job)
+    uses: leonidgrishenkov/github-actions/.github/workflows/docker.yaml@main
+    with:
+      image-name: devcr
+      registry-repo: github/personal
+      smoke-test-args: "/etc/pipeline-test"
+      push: 'false'
+    secrets: inherit    # forwards YC_CR_SA_AUTH_JSON; reads vars.YC_REGISTRY_ID

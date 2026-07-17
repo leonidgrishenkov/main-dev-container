@@ -4,11 +4,10 @@
 name: Release Docker Image
 
 on:
+  # Runs only for PR into main and any non-main branches
   push:
-    tags: ['*.*']
+    branches-ignore: [main]
   pull_request:
-    # Reusable workflow always pushes (push: true is hardcoded in it).
-    # PRs therefore build, scan, AND push — fine for a throwaway test repo.
     branches: [main]
 
 # Required caller permissions: the reusable workflow's jobs may only use a
@@ -24,8 +23,7 @@ jobs:
       id-token: write        # cosign keyless OIDC (push job)
     uses: leonidgrishenkov/github-actions/.github/workflows/docker.yaml@main
     with:
-      image-name: main-dev-container
-      # smoke-test proves the binary runs in the final scratch image.
-      smoke-test-args: "--version"
-      # All other inputs (registry, platforms, provenance, sbom) use workflow defaults.
+      image-name: devcr
+      registry-repo: github/personal
+      smoke-test-args: "/etc/pipeline-test"
     secrets: inherit    # forwards YC_CR_SA_AUTH_JSON; reads vars.YC_REGISTRY_ID
