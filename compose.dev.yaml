@@ -5,6 +5,6 @@ services:
       context: .
     environment:
       - TERM=${TERM}
-    container_name: dev-container
+    container_name: devcr
     command: ["tail", "-f", "/dev/null"]
     restart: "no"
