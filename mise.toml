@@ -1,13 +1,14 @@
 [tools]
 node = "26.3.1"
 neovim = "0.12.3"
-fzf = "0.73.1"
+# Go-based CLIs (fzf/lazygit/task/direnv/glow) are NOT pinned here: their mise
+# prebuilts ship stale Go stdlib / golang.org/x/* (some have no newer release).
+# They are built from source with the Go toolchain below (see Dockerfile).
 ripgrep = "15.1.0"
 bat = "0.26.1"
 yazi = "26.5.6"
 starship = "1.25.1"
 delta = "0.19.2"
-lazygit = "0.62.2"
 atuin = "18.16.1"
 fd = "10.4.2"
 zoxide = "0.10.0"
@@ -15,9 +16,9 @@ eza = "0.23.4"
 vivid = "0.11.1"
 tree-sitter = "0.25.10"
 pi = "0.80.3"
-task = "3.50.0"
-direnv = "2.37.1"
-glow = "2.1.2"
+# Go toolchain used to build the Go-based CLIs from source in the Dockerfile.
+# Pinned (not 'latest') so the resulting binaries' embedded stdlib is reproducible.
+go = "1.26.5"
 "aqua:fish-shell/fish-shell" = "4.8.0"
 "aqua:tealdeer-rs/tealdeer" = "1.8.1"
 
