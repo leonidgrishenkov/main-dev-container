@@ -44,7 +44,6 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     export GOPATH=/root/go GOBIN=/usr/local/bin \
            GOCACHE=/root/.cache/go-build GOMODCACHE=/root/go/pkg/mod && \
     go version && \
-    cd /tmp && \
     # direnv/lazygit/fzf/shfmt: only stdlib was vulnerable -> rebuild @latest pinned versions with Go 1.26.5.
     # shfmt: latest tag (v3.13.1) ships a prebuilt built with Go 1.26.1 and has NO newer release,
     # so source-rebuild is the only fix. The Mason copy installed later by nvim is overwritten in a post-step.
@@ -54,16 +53,19 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     go install mvdan.cc/sh/v3/cmd/shfmt@v3.13.1 && \
     # glow v2: also had golang.org/x/net v0.40.0 (HIGH) -> bump to v0.55.0.
     # NOTE the /v2 module path (v1 is a different, older major).
-    rm -rf /tmp/glow && mkdir /tmp/glow && cd /tmp/glow && go mod init glow && \
-    go get github.com/charmbracelet/glow/v2@v2.1.2 && \
-    go get golang.org/x/net@v0.55.0 && \
-    go build -o /usr/local/bin/glow github.com/charmbracelet/glow/v2 && \
+    rm -rf /tmp/glow && mkdir -p /tmp/glow && \
+    go -C /tmp/glow mod init glow && \
+    go -C /tmp/glow get github.com/charmbracelet/glow/v2@v2.1.2 && \
+    go -C /tmp/glow get golang.org/x/net@v0.55.0 && \
+    go -C /tmp/glow build -o /usr/local/bin/glow github.com/charmbracelet/glow/v2 && \
+    rm -rf /tmp/glow && \
     # task v3: golang.org/x/net v0.52.0 + golang.org/x/crypto v0.49.0 (HIGH) -> bump both.
-    rm -rf /tmp/task && mkdir /tmp/task && cd /tmp/task && go mod init task && \
-    go get github.com/go-task/task/v3/cmd/task@v3.52.0 && \
-    go get golang.org/x/net@v0.55.0 golang.org/x/crypto@v0.52.0 && \
-    go build -o /usr/local/bin/task github.com/go-task/task/v3/cmd/task && \
-    cd / && rm -rf /tmp/glow /tmp/task
+    rm -rf /tmp/task && mkdir -p /tmp/task && \
+    go -C /tmp/task mod init task && \
+    go -C /tmp/task get github.com/go-task/task/v3/cmd/task@v3.52.0 && \
+    go -C /tmp/task get golang.org/x/net@v0.55.0 golang.org/x/crypto@v0.52.0 && \
+    go -C /tmp/task build -o /usr/local/bin/task github.com/go-task/task/v3/cmd/task && \
+    rm -rf /tmp/task
 
 # Post-install patch: replace npm's bundled undici (6.26.0, CVE-2026-12151 HIGH) with
 # 6.27.0 (fix available, same major -> drop-in). Node's bundled npm/undici is NOT
