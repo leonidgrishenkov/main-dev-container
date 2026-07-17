@@ -24,5 +24,5 @@ jobs:
     with:
       image-name: devcr
       registry-repo: github/personal
-      smoke-test-args: "/etc/pipeline-test"
+      smoke-test-args: "--version"
     secrets: inherit    # forwards YC_CR_SA_AUTH_JSON; reads vars.YC_REGISTRY_ID
