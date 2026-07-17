@@ -40,7 +40,6 @@ RUN --mount=type=cache,id=mise-downloads,target=/root/.local/share/mise,sharing=
 #   task                  : golang.org/x/net v0.52.0 + golang.org/x/crypto v0.49.0 (HIGH) -> bump both
 RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     --mount=type=cache,id=go-mod,target=/root/go/pkg/mod,sharing=locked \
-    set -euo pipefail && \
     eval "$(mise hook-env)" && \
     export GOPATH=/root/go GOBIN=/usr/local/bin \
            GOCACHE=/root/.cache/go-build GOMODCACHE=/root/go/pkg/mod && \
@@ -72,8 +71,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
 # patch in place. (The Go test-fixture PEM is deleted in the mise-install RUN above,
 # in the same layer it's created in — deleting it in a later layer wouldn't clear it
 # from the earlier layer diff that Trivy scans.)
-RUN set -euo pipefail && \
-    NODE_INSTALL="$(mise where node)" && \
+RUN NODE_INSTALL="$(mise where node)" && \
     NM="$NODE_INSTALL/lib/node_modules/npm/node_modules" && \
     rm -rf "$NM/undici" && \
     curl -fsSL https://registry.npmjs.org/undici/-/undici-6.27.0.tgz | tar xz -C "$NM" && \
