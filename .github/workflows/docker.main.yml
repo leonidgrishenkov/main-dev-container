@@ -4,10 +4,9 @@
 name: Release Docker Image
 
 on:
-  # Runs only for PR into main and any non-main branches
+  # Fires when a PR is merged into main (push to main) — the actual release event.
+  # Pre-release runs are handled by docker.pre.yml on non-main branches / PRs.
   push:
-    branches-ignore: [main]
-  pull_request:
     branches: [main]
 
 # Required caller permissions: the reusable workflow's jobs may only use a
