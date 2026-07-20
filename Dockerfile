@@ -1,5 +1,6 @@
-# debian:trixie-20251103
-FROM docker.io/debian@sha256:01a723bf5bfb21b9dda0c9a33e0538106e4d02cce8f557e118dd61259553d598
+# trixie-20260713-slim
+# https://hub.docker.com/layers/library/debian/trixie-20260713-slim/images/sha256-53dfdbcd6fbc78c5052f35d2a5c798259f4c615cd93582b4ff5ad4f04249c7e3
+FROM docker.io/debian@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
 
 USER root
 
