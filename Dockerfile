@@ -130,6 +130,9 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} \
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
 ENV TERM=xterm-256color
+# Explicit override that tells nvim to access system clipboard via OSC52 excape sequence.
+# It would work only in modern terminals such as iTerm2, WezTerm, Alacritty, Kitty, Ghostty, Windows Terminal, etc.
+ENV NVIM_CLIPBOARD=osc52
 
 USER ${USERNAME}
 
