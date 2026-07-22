@@ -139,9 +139,10 @@ USER ${USERNAME}
 
 ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
 ARG XDG_DATA_HOME=${HOME}/.local/share
+
 WORKDIR ${DOTFILES_DIR}
 
-RUN git clone -q --depth=1 -b "main" --single-branch ${DOTFILES_REPO_URL} "${DOTFILES_DIR}" \
+RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
     && task stow:essentials pi:install nvim:install \
     && bat cache --build
