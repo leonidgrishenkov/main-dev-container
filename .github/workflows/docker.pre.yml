@@ -7,8 +7,6 @@ on:
   # Runs only for PR into main and any non-main branches
   push:
     branches-ignore: [main]
-  pull_request:
-    branches: [main]
 
 # Required caller permissions: the reusable workflow's jobs may only use a
 # *subset* of what the caller grants (permissions can't be elevated across
