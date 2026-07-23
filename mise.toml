@@ -15,7 +15,7 @@ zoxide = "0.10.0"
 eza = "0.23.4"
 vivid = "0.11.1"
 tree-sitter = "0.25.10"
-pi = "0.80.3"
+pi = "0.81.1"
 # Go toolchain used to build the Go-based CLIs from source in the Dockerfile.
 # Pinned (not 'latest') so the resulting binaries' embedded stdlib is reproducible.
 go = "1.26.5"
