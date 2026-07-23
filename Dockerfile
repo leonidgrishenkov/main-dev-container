@@ -161,18 +161,6 @@ RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${D
 RUN find "${HOME}/.local/share/nvim/mason/packages/shfmt" -type f -name 'shfmt_v*' \
         -exec cp /usr/local/bin/shfmt {} \; 2>/dev/null || true
 
-# Patch fast-uri (3.1.3, CVE-2026-16221 HIGH) pulled in transitively via Mason's
-# yaml-language-server -> ajv -> fast-uri. npm hoists it to the tool's top-level
-# node_modules, but a nested copy under ajv can also exist depending on the resolved
-# tree, so replace EVERY fast-uri dir under the Mason package with the fixed
-# same-major drop-in (3.1.4). No-op if none are found.
-RUN eval "$(mise hook-env)" && \
-    find "${HOME}/.local/share/nvim/mason/packages" -type d -name fast-uri -prune | while read -r d; do \
-        curl -fsSL https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz | tar xz -C "$(dirname "$d")" && \
-        rm -rf "$d" && mv "$(dirname "$d")/package" "$d" && \
-        grep -q '"version": "3.1.4"' "$d/package.json"; \
-    done
-
 WORKDIR ${HOME}
 SHELL ["/usr/local/bin/fish"]
 
