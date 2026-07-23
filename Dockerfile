@@ -50,6 +50,8 @@ RUN --mount=type=cache,id=mise-downloads,target=/root/.local/share/mise,sharing=
 #   glow/task                : golang.org/x/net -> v0.57.0 (CVE-2026-46600), x/text -> v0.40.0 (CVE-2026-56852)
 #   lazygit/glow             : golang.org/x/text -> v0.40.0 (CVE-2026-56852)
 #   task                     : golang.org/x/crypto -> v0.54.0 (older x/crypto HIGH)
+#   task                     : google.golang.org/grpc -> v1.82.1 (GHSA-hrxh-6v49-42gf);
+#                              bumped inline (not in XSYS) since only task imports grpc.
 # shfmt: latest tag (v3.13.1) has NO newer release, so source-rebuild is the only
 # fix. The Mason prebuilt installed later by nvim is overwritten in a post-step.
 # DL3062 false positive: hadolint mis-parses `go -C <dir> get pkg@ver` and reports
@@ -96,13 +98,14 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     rm -rf /tmp/task && mkdir -p /tmp/task && \
     go -C /tmp/task mod init task && \
     go -C /tmp/task get github.com/go-task/task/v3/cmd/task@v3.52.0 && \
-    go -C /tmp/task get "${XSYS[@]}" && \
+    go -C /tmp/task get "${XSYS[@]}" google.golang.org/grpc@v1.82.1 && \
     go -C /tmp/task build -o /usr/local/bin/task github.com/go-task/task/v3/cmd/task && \
     rm -rf /tmp/task
 
-# Post-install patch: replace npm's bundled undici (6.26.0, CVE-2026-12151 HIGH) and
-# tar (7.5.15, CVE-2026-53655 HIGH by vendor severity) with fixed, same-major
-# drop-ins (undici 6.27.0, tar 7.5.16). Node's bundled npm deps are NOT updated by
+# Post-install patch: replace npm's bundled undici (6.26.0, CVE-2026-12151 HIGH),
+# tar (7.5.16, CVE-2026-59873 CRITICAL + CVE-2026-59874 HIGH) and brace-expansion
+# (5.0.6, CVE-2026-13149 HIGH) with fixed, same-major drop-ins (undici 6.27.0,
+# tar 7.5.19, brace-expansion 5.0.7). Node's bundled npm deps are NOT updated by
 # Node minor bumps (26.3.1/26.4.0/26.5.0 all still ship the old versions), so patch
 # in place. (The Go test-fixture PEM is deleted in the mise-install RUN above,
 # in the same layer it's created in — deleting it in a later layer wouldn't clear it
@@ -114,9 +117,13 @@ RUN NODE_INSTALL="$(mise where node)" && \
     mv "$NM/package" "$NM/undici" && \
     grep -q '"version": "6.27.0"' "$NM/undici/package.json" && \
     rm -rf "$NM/tar" && \
-    curl -fsSL https://registry.npmjs.org/tar/-/tar-7.5.16.tgz | tar xz -C "$NM" && \
+    curl -fsSL https://registry.npmjs.org/tar/-/tar-7.5.19.tgz | tar xz -C "$NM" && \
     mv "$NM/package" "$NM/tar" && \
-    grep -q '"version": "7.5.16"' "$NM/tar/package.json"
+    grep -q '"version": "7.5.19"' "$NM/tar/package.json" && \
+    rm -rf "$NM/brace-expansion" && \
+    curl -fsSL https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz | tar xz -C "$NM" && \
+    mv "$NM/package" "$NM/brace-expansion" && \
+    grep -q '"version": "5.0.7"' "$NM/brace-expansion/package.json"
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
@@ -153,6 +160,18 @@ RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${D
 # file in place. No-op if Mason didn't install shfmt (find returns nothing).
 RUN find "${HOME}/.local/share/nvim/mason/packages/shfmt" -type f -name 'shfmt_v*' \
         -exec cp /usr/local/bin/shfmt {} \; 2>/dev/null || true
+
+# Patch fast-uri (3.1.3, CVE-2026-16221 HIGH) pulled in transitively via Mason's
+# yaml-language-server -> ajv -> fast-uri. npm hoists it to the tool's top-level
+# node_modules, but a nested copy under ajv can also exist depending on the resolved
+# tree, so replace EVERY fast-uri dir under the Mason package with the fixed
+# same-major drop-in (3.1.4). No-op if none are found.
+RUN eval "$(mise hook-env)" && \
+    find "${HOME}/.local/share/nvim/mason/packages" -type d -name fast-uri -prune | while read -r d; do \
+        curl -fsSL https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz | tar xz -C "$(dirname "$d")" && \
+        rm -rf "$d" && mv "$(dirname "$d")/package" "$d" && \
+        grep -q '"version": "3.1.4"' "$d/package.json"; \
+    done
 
 WORKDIR ${HOME}
 SHELL ["/usr/local/bin/fish"]
