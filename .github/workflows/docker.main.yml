@@ -17,7 +17,35 @@ on:
 # narrows per job (lint -> read; scan -> read+security-events; push -> read+id-token).
 
 jobs:
+  # Gate: a version tag is only a valid release if it points at a commit that is
+  # part of main's history. Git tags aren't tied to a branch — anyone can tag a
+  # commit on any branch — so we assert the tagged commit is an ancestor of
+  # origin/main and fail the release otherwise. This blocks the build/push for
+  # off-main tags (the tag ref itself still exists in Git; nothing is released).
+  verify-tag-on-main:
+    name: Verify tag is on main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # need full history + main to compute ancestry
+
+      - name: Assert tagged commit is reachable from main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          TAG_SHA="$(git rev-parse HEAD)"
+          if git merge-base --is-ancestor "$TAG_SHA" origin/main; then
+            echo "::notice::Tag ${GITHUB_REF_NAME} (${TAG_SHA}) is on main — proceeding with release."
+          else
+            echo "::error::Tag ${GITHUB_REF_NAME} (${TAG_SHA}) is NOT reachable from main. Version tags must be created from a commit on main. Aborting release."
+            exit 1
+          fi
+
   docker:
+    needs: verify-tag-on-main
     permissions:
       contents: read        # checkout
       security-events: write # Trivy SARIF -> Code Scanning (scan job)
