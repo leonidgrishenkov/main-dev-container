@@ -5,8 +5,8 @@ name: Release Docker Image
 
 on:
   # Fires only when a version tag matching '*.*' (e.g. 1.2, 1.2.3) is pushed —
-  # the actual release event. The pushed tag becomes the image tag (see the
-  # type=semver rules in the reusable workflow's metadata step).
+  # the actual release event. The pushed tag becomes the image tag verbatim
+  # (type=ref,event=tag in the reusable workflow's metadata step).
   # Pre-release runs are handled by docker.pre.yml on non-main branches / PRs.
   push:
     tags: ['*.*']
