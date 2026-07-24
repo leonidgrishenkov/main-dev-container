@@ -4,10 +4,12 @@
 name: Release Docker Image
 
 on:
-  # Fires when a PR is merged into main (push to main) — the actual release event.
+  # Fires only when a version tag matching '*.*' (e.g. 1.2, 1.2.3) is pushed —
+  # the actual release event. The pushed tag becomes the image tag (see the
+  # type=semver rules in the reusable workflow's metadata step).
   # Pre-release runs are handled by docker.pre.yml on non-main branches / PRs.
   push:
-    branches: [main]
+    tags: ['*.*']
 
 # Required caller permissions: the reusable workflow's jobs may only use a
 # *subset* of what the caller grants (permissions can't be elevated across
@@ -25,4 +27,4 @@ jobs:
       image-name: devcr
       registry-repo: github/personal
       smoke-test-args: "--version"
-    secrets: inherit    # forwards YC_CR_SA_AUTH_JSON; reads vars.YC_REGISTRY_ID
+    secrets: inherit

@@ -1,17 +1,8 @@
-# Calls the shared reusable docker workflow in leonidgrishenkov/github-actions.
-#
-# Builds, scans, and pushes the hello-docker image to Yandex Container Registry.
 name: Pre-release Docker Image
 
 on:
-  # Runs only for PR into main and any non-main branches
   push:
-    branches-ignore: [main]
-
-# Required caller permissions: the reusable workflow's jobs may only use a
-# *subset* of what the caller grants (permissions can't be elevated across
-# the reusable-workflow boundary). Grant the union here; the called workflow
-# narrows per job (lint -> read; scan -> read+security-events; push -> read+id-token).
+    branches: [main]
 
 jobs:
   docker:
