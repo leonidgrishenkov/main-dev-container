@@ -103,9 +103,9 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     rm -rf /tmp/task
 
 # Post-install patch: replace npm's bundled undici (6.26.0, CVE-2026-12151 HIGH),
-# tar (7.5.16, CVE-2026-59873 CRITICAL + CVE-2026-59874 HIGH) and brace-expansion
-# (5.0.6, CVE-2026-13149 HIGH) with fixed, same-major drop-ins (undici 6.27.0,
-# tar 7.5.19, brace-expansion 5.0.7). Node's bundled npm deps are NOT updated by
+# tar (7.5.16, CVE-2026-59873 CRITICAL + CVE-2026-59874 HIGH + GHSA-r292-9mhp-454m
+# MEDIUM in <=7.5.20) and brace-expansion (5.0.6, CVE-2026-13149 HIGH) with fixed,
+# same-major drop-ins (undici 6.27.0, tar 7.5.22, brace-expansion 5.0.8). Node's bundled npm deps are NOT updated by
 # Node minor bumps (26.3.1/26.4.0/26.5.0 all still ship the old versions), so patch
 # in place. (The Go test-fixture PEM is deleted in the mise-install RUN above,
 # in the same layer it's created in — deleting it in a later layer wouldn't clear it
@@ -117,9 +117,9 @@ RUN NODE_INSTALL="$(mise where node)" && \
     mv "$NM/package" "$NM/undici" && \
     grep -q '"version": "6.27.0"' "$NM/undici/package.json" && \
     rm -rf "$NM/tar" && \
-    curl -fsSL https://registry.npmjs.org/tar/-/tar-7.5.19.tgz | tar xz -C "$NM" && \
+    curl -fsSL https://registry.npmjs.org/tar/-/tar-7.5.22.tgz | tar xz -C "$NM" && \
     mv "$NM/package" "$NM/tar" && \
-    grep -q '"version": "7.5.19"' "$NM/tar/package.json" && \
+    grep -q '"version": "7.5.22"' "$NM/tar/package.json" && \
     rm -rf "$NM/brace-expansion" && \
     curl -fsSL https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz | tar xz -C "$NM" && \
     mv "$NM/package" "$NM/brace-expansion" && \
