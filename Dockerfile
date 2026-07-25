@@ -121,9 +121,9 @@ RUN NODE_INSTALL="$(mise where node)" && \
     mv "$NM/package" "$NM/tar" && \
     grep -q '"version": "7.5.19"' "$NM/tar/package.json" && \
     rm -rf "$NM/brace-expansion" && \
-    curl -fsSL https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz | tar xz -C "$NM" && \
+    curl -fsSL https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz | tar xz -C "$NM" && \
     mv "$NM/package" "$NM/brace-expansion" && \
-    grep -q '"version": "5.0.7"' "$NM/brace-expansion/package.json"
+    grep -q '"version": "5.0.8"' "$NM/brace-expansion/package.json"
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
