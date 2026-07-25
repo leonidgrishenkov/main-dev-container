@@ -151,7 +151,10 @@ WORKDIR ${DOTFILES_DIR}
 
 RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && task stow:essentials pi:install nvim:install \
+    && cat ./stow/linux-essential | xargs -I {} stow {} \
+    && nvim --headless "+Lazy! restore" +qa \
+    && pi install git:github.com/leonidgrishenkov/pi-extensions \
+    && npx -y github:leonidgrishenkov/agent-skills install --target pi --target claude \
     && bat cache --build
 
 # Overwrite Mason's prebuilt shfmt (built with Go 1.26.1, vuln stdlib) with the
