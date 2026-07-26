@@ -1,6 +1,6 @@
 ---
 # yamllint disable rule:line-length
-name: GitGuardian Scan
+name: gitguardian-scan
 
 on:
   push:
@@ -9,16 +9,16 @@ on:
 
 jobs:
   scanning:
-    name: Scan
+    name: scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # fetch all history so multiple commits can be scanned
-      - name: Scan
+      - name: scan
         uses: GitGuardian/ggshield-action@v1
         env:
           GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}

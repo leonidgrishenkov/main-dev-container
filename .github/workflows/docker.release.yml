@@ -1,5 +1,5 @@
 ---
-name: Release Docker Image
+name: release-docker-image
 
 on:
   push:
@@ -26,18 +26,18 @@ jobs:
   # commit on any branch — so we assert the tagged commit is an ancestor of
   # origin/main and fail the release otherwise. This blocks the build/push for
   # off-main tags (the tag ref itself still exists in Git; nothing is released).
-  verify-tag-on-main:
-    name: Verify tag is on main
+  tag-ref-gate:
+    name: tag-ref-gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout (full history)
+      - name: checkout-full-history
         uses: actions/checkout@v7
         with:
           fetch-depth: 0   # need full history + main to compute ancestry
 
-      - name: Assert tagged commit is reachable from main
+      - name: assert-tagged-commit-is-reachable-from-main
         run: |
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           TAG_SHA="$(git rev-parse HEAD)"
@@ -49,37 +49,37 @@ jobs:
           fi
 
   push:
-    name: Build & push (multi-arch) + sign
+    name: build-and-push-multi-arch-plus-sign
     needs: verify-tag-on-main
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write          # OIDC for cosign keyless signing
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v7
 
-      - name: Prepare image reference
+      - name: prepare-image-reference
         run: |
           FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
           echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
           CACHE_REPO="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/cache"
           echo "CACHE_IMAGE=${CACHE_REPO}/${IMAGE_NAME}" >> "$GITHUB_ENV"
 
-      - name: Set up QEMU (multi-arch)
+      - name: set-up-qemu-multi-arch
         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Buildx
+      - name: set-up-buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Yandex Container Registry
+      - name: log-in-to-yandex-container-registry
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: json_key
           password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
 
-      - name: Derive tags & labels
+      - name: derive-tags-and-labels
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -98,7 +98,7 @@ jobs:
 
       # Build multi-arch from registry cache (written by PR scan), then push with
       # SBOM + SLSA provenance attestations attached.
-      - name: Build & push (multi-arch + attestations)
+      - name: build-and-push-multi-arch-plus-attestations
         id: push
         uses: docker/build-push-action@v6
         with:
@@ -117,15 +117,15 @@ jobs:
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install cosign
+      - name: install-cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign image (keyless via GitHub OIDC)
+      - name: sign-image-keyless-via-github-oidc
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: cosign sign --yes "${{ env.FULL_IMAGE }}@${{ steps.push.outputs.digest }}"
 
-      - name: Release summary
+      - name: release-summary
         run: |
           {
             echo "### Docker release summary"
