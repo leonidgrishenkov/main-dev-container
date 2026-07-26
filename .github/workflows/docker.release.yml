@@ -112,6 +112,8 @@ jobs:
           sbom: true
           cache-from: type=gha,key=${{ env.IMAGE_NAME }}
           cache-to: type=gha,mode=max,key=${{ env.IMAGE_NAME }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3

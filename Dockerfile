@@ -22,6 +22,7 @@ ARG MISE_JOBS=4
 
 COPY --chown=root:root --chmod=644 ./mise.toml /etc/mise/config.toml
 RUN --mount=type=cache,id=mise-downloads,target=/root/.local/share/mise,sharing=locked \
+    --mount=type=secret,id=github_token,env=GITHUB_TOKEN,required=true \
     curl -fsSL https://mise.run \
     | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
     && chmod 755 /etc/mise \
