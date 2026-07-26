@@ -29,42 +29,26 @@ workflows are self-contained in this repository under `.github/workflows/`.
 ### High-Level Flow
 
 ```mermaid
-flowchart LR
-    subgraph dev["Developer pushes to feature branch"]
-        A["Any branch<br/>except main"]
+flowchart TB
+    subgraph wf["GitHub Workflow"]
+        direction LR
+        c1["- lint\n- other checks"]
+        c2["- build image\n- scan it"]
+        c3["- build multi-arch image\n- push to the registry"]
     end
 
-    subgraph lint["Fast Feedback"]
-        B["docker.lint.yml<br/>hadolint only"]
-    end
+    dev(("🧑 developer"))
+    branch["any-dev-branch"]
+    main["main"]
+    tag["git-tag"]
 
-    subgraph pr["Pull Request to main"]
-        C["PR opened<br/>to main"]
-    end
+    dev -->|push| branch
+    branch -->|open PR| main
+    main -->|create new tag| tag
 
-    subgraph scan["PR Gate"]
-        D["docker.pr.yml<br/>Build amd64 + Trivy scan<br/>Smoke test + SARIF upload"]
-    end
-
-    subgraph tag["Release Trigger"]
-        E["Tag *.* pushed<br/>from main"]
-    end
-
-    subgraph release["Release"]
-        F["docker.release.yml<br/>Verify tag is on main<br/>Build multi-arch + push<br/>SBOM + SLSA + cosign sign"]
-    end
-
-    A --> B
-    C --> D
-    D -->|"Merge to main"| E
-    E --> F
-
-    style dev fill:#e8f4fd
-    style lint fill:#d4edda
-    style pr fill:#fff3cd
-    style scan fill:#f8d7da
-    style tag fill:#d1ecf1
-    style release fill:#c3e6cb
+    branch -.-> c1
+    main -.-> c2
+    tag -.-> c3
 ```
 
 ### Security Checks
