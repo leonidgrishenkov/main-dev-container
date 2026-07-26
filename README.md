@@ -26,30 +26,6 @@ workflows are self-contained in this repository under `.github/workflows/`.
 - **Cross-run cache sharing.** PR and release builds share a **registry cache** in YC CR (`cache/devcr`) so layers are
   reused across workflows.
 
-### High-Level Flow
-
-```mermaid
-flowchart TB
-    subgraph wf["GitHub Workflow"]
-        direction LR
-        c1["- lint\n- other checks"]
-        c2["- build image\n- scan it"]
-        c3["- build multi-arch image\n- push to the registry"]
-    end
-
-    dev(("🧑 developer"))
-    branch["any-dev-branch"]
-    main["main"]
-    tag["git-tag"]
-
-    dev -->|push| branch
-    branch -->|open PR| main
-    main -->|create new tag| tag
-
-    branch -.-> c1
-    main -.-> c2
-    tag -.-> c3
-```
 
 ### Security Checks
 
