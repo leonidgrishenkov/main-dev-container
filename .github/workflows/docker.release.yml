@@ -49,8 +49,8 @@ jobs:
           fi
 
   push:
-    name: build-and-push-multi-arch-plus-sign
-    needs: verify-tag-on-main
+    name: build-and-push
+    needs: tag-ref-gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,7 +98,7 @@ jobs:
 
       # Build multi-arch from registry cache (written by PR scan), then push with
       # SBOM + SLSA provenance attestations attached.
-      - name: build-and-push-multi-arch-plus-attestations
+      - name: build-and-push
         id: push
         uses: docker/build-push-action@v6
         with:
@@ -120,12 +120,12 @@ jobs:
       - name: install-cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: sign-image-keyless-via-github-oidc
+      - name: sign-image
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: cosign sign --yes "${{ env.FULL_IMAGE }}@${{ steps.push.outputs.digest }}"
 
-      - name: release-summary
+      - name: write-release-summary
         run: |
           {
             echo "### Docker release summary"
