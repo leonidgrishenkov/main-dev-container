@@ -1,0 +1,165 @@
+---
+name: PR — Build & Scan Docker Image
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: cr.yandex
+  REGISTRY_ID: ${{ vars.YC_REGISTRY_ID }}
+  IMAGE_NAME: devcr
+  REGISTRY_REPO: github/personal
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Build & scan (amd64)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload Trivy SARIF to Code Scanning
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare image reference
+        run: |
+          FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
+          echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
+          echo "::notice::Scanning ${FULL}:${{ github.sha }}"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login is needed when the Dockerfile pulls a base image from the same YC registry.
+      - name: Log in to Yandex Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: json_key
+          password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
+
+      # Build a single-arch image into the daemon so it can be scanned & smoke-tested.
+      # (Multi-arch cannot be loaded locally, hence the amd64-only scan image.)
+      - name: Generate cache image reference
+        id: cache-meta
+        run: |
+          CACHE_REPO="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/cache"
+          echo "CACHE_IMAGE=${CACHE_REPO}/${IMAGE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Build (amd64, load for scan)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.FULL_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:latest
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:latest,mode=max
+          provenance: false
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.FULL_IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: sarif
+          output: trivy-results.sarif
+
+      # Print the findings as a readable table in the job log so scan failures
+      # are debuggable without leaving the Actions UI. Runs even when the scan
+      # step failed (exit-code: 1) so the CVEs that tripped the gate are visible.
+      - name: Print Trivy findings
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f trivy-results.sarif ]; then echo "No SARIF file produced."; exit 0; fi
+          python3 - <<'PY'
+          import json,re,sys
+          from collections import defaultdict
+          try:
+              d=json.load(open('trivy-results.sarif'))
+          except Exception as e:
+              print("Could not parse SARIF:",e); sys.exit(0)
+          sev_filter={"HIGH","CRITICAL"}
+          g=defaultdict(list)
+          for run in d.get('runs',[]):
+              for r in run.get('results',[]):
+                  t=r.get('message',{}).get('text','')
+                  pkg=re.search(r'Package:\s*(\S+)',t)
+                  inst=re.search(r'Installed Version:\s*(\S+)',t)
+                  sev=re.search(r'Severity:\s*(\S+)',t)
+                  fix=re.search(r'Fixed Version:\s*(.+)',t)
+                  cve=r.get('ruleId','')
+                  s=sev.group(1) if sev else ''
+                  if s not in sev_filter or not fix: continue
+                  g[(pkg.group(1) if pkg else '?', inst.group(1) if inst else '?')].append((s,fix.group(1).strip(),cve))
+          if not g:
+              print("No fixable HIGH/CRITICAL vulnerabilities found.")
+          else:
+              print("=== Fixable HIGH/CRITICAL findings (fail the gate) ===")
+              print()
+              for (pkg,inst),items in sorted(g.items()):
+                  cves=', '.join(sorted({c for _,_,c in items}))
+                  fixes='; '.join(sorted({f for _,f,_ in items}))
+                  print(f"{pkg} {inst}  [{','.join(sorted({s for s,_,_ in items}))}]")
+                  print(f"  CVEs: {cves}")
+                  print(f"  Fix to: {fixes}")
+                  print()
+          PY
+
+      - name: Upload Trivy SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+
+      # Smoke test: run `docker run --rm <image>` with args.
+      - name: Smoke test
+        run: |
+          IMG="${{ env.FULL_IMAGE }}:${{ github.sha }}"
+          ARGS="--version"
+          case "$ARGS" in
+            -*)
+              EP_LEN=$(docker inspect -f '{{len .Config.Entrypoint}}' "$IMG")
+              if [ "$EP_LEN" = "0" ]; then
+                CMD0=$(docker inspect -f '{{if .Config.Cmd}}{{index .Config.Cmd 0}}{{end}}' "$IMG")
+                if [ -z "$CMD0" ]; then
+                  echo "::error::smoke-test-args start with '-' ('$ARGS') but the image has no ENTRYPOINT/CMD to prepend. Pass a full command (e.g. 'fish --version') instead."
+                  exit 1
+                fi
+                echo "::notice::smoke-test-args start with a flag; prepending image CMD[0] ('$CMD0') -> running: $CMD0 $ARGS"
+                ARGS="$CMD0 $ARGS"
+              fi
+              ;;
+          esac
+          docker run --rm $IMG $ARGS
+
+      - name: Scan summary
+        if: always()
+        run: |
+          {
+            echo "### Scan summary"
+            echo ""
+            echo "| Key | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${{ env.FULL_IMAGE }}:${{ github.sha }}\` |"
+            echo "| Severity gate | \`HIGH,CRITICAL\` |"
+            echo "| Smoke test | ran |"
+            echo "| SARIF | Security › Code scanning alerts |"
+            echo "| Push | skipped (PR gate) |"
+          } >> "$GITHUB_STEP_SUMMARY"
