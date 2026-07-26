@@ -1,20 +1,24 @@
-# Calls the shared reusable docker workflow in leonidgrishenkov/github-actions.
-#
-# Builds, scans, and pushes the hello-docker image to Yandex Container Registry.
+---
 name: Release Docker Image
 
 on:
-  # Fires only when a version tag matching '*.*' (e.g. 1.2, 1.2.3) is pushed —
-  # the actual release event. The pushed tag becomes the image tag verbatim
-  # (type=ref,event=tag in the reusable workflow's metadata step).
-  # Pre-release runs are handled by docker.pre.yml on non-main branches / PRs.
   push:
-    tags: ['*.*']
+    tags:
+      - '*.*'
 
-# Required caller permissions: the reusable workflow's jobs may only use a
-# *subset* of what the caller grants (permissions can't be elevated across
-# the reusable-workflow boundary). Grant the union here; the called workflow
-# narrows per job (lint -> read; scan -> read+security-events; push -> read+id-token).
+env:
+  REGISTRY: cr.yandex
+  REGISTRY_ID: ${{ vars.YC_REGISTRY_ID }}
+  IMAGE_NAME: devcr
+  REGISTRY_REPO: github/personal
+  PLATFORMS: linux/amd64,linux/arm64
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a multi-arch push mid-flight
+
+permissions:
+  contents: read
 
 jobs:
   # Gate: a version tag is only a valid release if it points at a commit that is
@@ -44,15 +48,90 @@ jobs:
             exit 1
           fi
 
-  docker:
+  push:
+    name: Build & push (multi-arch) + sign
     needs: verify-tag-on-main
+    runs-on: ubuntu-latest
     permissions:
-      contents: read        # checkout
-      security-events: write # Trivy SARIF -> Code Scanning (scan job)
-      id-token: write        # cosign keyless OIDC (push job)
-    uses: leonidgrishenkov/github-actions/.github/workflows/docker.yaml@main
-    with:
-      image-name: devcr
-      registry-repo: github/personal
-      smoke-test-args: "--version"
-    secrets: inherit
+      contents: read
+      id-token: write          # OIDC for cosign keyless signing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare image reference
+        run: |
+          FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
+          echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Yandex Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: json_key
+          password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
+
+      - name: Derive tags & labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.FULL_IMAGE }}
+          # Published tags: the full commit SHA (hardcoded in the build-push
+          # step below) plus the git tag verbatim (e.g. 1.5). Do NOT use
+          # type=semver here: it demands strict X.Y.Z, so a `1.5` tag is
+          # rejected ("not a valid semver") and no image tag is generated.
+          # type=ref,event=tag is safe because callers gate which tags trigger
+          # a release (e.g. push tags: ['*.*']).
+          tags: |
+            type=ref,event=tag
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Build multi-arch from cache (if available from PR scan), then push with
+      # SBOM + SLSA provenance attestations attached.
+      - name: Build & push (multi-arch + attestations)
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: |
+            ${{ env.FULL_IMAGE }}:${{ github.sha }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,key=${{ env.IMAGE_NAME }}
+          cache-to: type=gha,mode=max,key=${{ env.IMAGE_NAME }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless via GitHub OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: cosign sign --yes "${{ env.FULL_IMAGE }}@${{ steps.push.outputs.digest }}"
+
+      - name: Release summary
+        run: |
+          {
+            echo "### Docker release summary"
+            echo ""
+            echo "| Key | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${{ env.FULL_IMAGE }}\` |"
+            echo "| Platforms | \`${{ env.PLATFORMS }}\` |"
+            echo "| Digest | \`${{ steps.push.outputs.digest }}\` |"
+            echo "| Attestations | provenance=\`mode=max\` sbom=\`true\` |"
+            echo "| Signed | ✅ cosign keyless (OIDC) |"
+            echo "| Scan | Security › Code scanning alerts (Trivy SARIF from PR) |"
+          } >> "$GITHUB_STEP_SUMMARY"
