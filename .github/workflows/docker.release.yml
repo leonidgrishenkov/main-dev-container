@@ -100,7 +100,7 @@ jobs:
       # SBOM + SLSA provenance attestations attached.
       - name: build-and-push
         id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
