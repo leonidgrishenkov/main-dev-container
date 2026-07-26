@@ -147,7 +147,8 @@ jobs:
               fi
               ;;
           esac
-          docker run --rm $IMG $ARGS
+          # shellcheck disable=SC2086
+          docker run --rm "$IMG" $ARGS
 
       - name: Scan summary
         if: always()
