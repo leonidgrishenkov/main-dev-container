@@ -37,7 +37,7 @@ jobs:
           echo "::notice::Scanning ${FULL}:${{ github.sha }}"
 
       - name: set-up-buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Login is needed when the Dockerfile pulls a base image from the same YC registry.
       - name: log-in-to-registry
