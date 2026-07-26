@@ -1,5 +1,5 @@
 ---
-name: Lint Dockerfile
+name: Lint
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint Dockerfile
+    name: Lint & validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,3 +21,16 @@ jobs:
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: ./Dockerfile
+
+      - name: Scan config (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          scan-ref: .
+
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          fail-on-error: true
