@@ -38,7 +38,7 @@ jobs:
           scan-ref: .
 
   actionlint:
-    name: Lint & validate
+    name: actionlint
     runs-on: ubuntu-latest
     steps:
       - name: checkout
