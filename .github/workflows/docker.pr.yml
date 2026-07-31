@@ -41,7 +41,7 @@ jobs:
 
       # Login is needed when the Dockerfile pulls a base image from the same YC registry.
       - name: log-in-to-registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.5.2
         with:
           registry: ${{ env.REGISTRY }}
           username: json_key
