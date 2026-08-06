@@ -150,13 +150,16 @@ ARG XDG_DATA_HOME=${HOME}/.local/share
 
 WORKDIR ${DOTFILES_DIR}
 
+COPY ./stow-packages /tmp/stow-packages
+
 RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${DOTFILES_DIR}" \
     && eval "$(mise hook-env)" \
-    && cat ./stow/linux-essential | xargs -I {} stow {} \
+    && cat /tmp/stow-packages | xargs -I {} stow {} \
     && nvim --headless "+Lazy! restore" +qa \
     && pi install git:github.com/leonidgrishenkov/pi-extensions \
     && npx -y github:leonidgrishenkov/agent-skills install --target pi --target claude \
-    && bat cache --build
+    && bat cache --build \
+    && rm /tmp/stow-packages
 
 # Overwrite Mason's prebuilt shfmt (built with Go 1.26.1, vuln stdlib) with the
 # source-built copy from the Go step above (built with Go 1.26.5). Mason names the
