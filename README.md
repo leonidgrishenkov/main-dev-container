@@ -11,11 +11,11 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 ### Workflow Triggers
 
-| Trigger                          | Workflow             | What runs                                                                                                                    | Purpose                          |
-| -------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Push to any branch except `main` | `docker.lint.yml`    | `hadolint` Dockerfile lint                                                                                                   | Fast feedback during development |
-| PR into `main`                   | `docker.pr.yml`      | Build amd64 image, Trivy scan (HIGH/CRITICAL), SARIF upload, smoke test                                                      | Gate — must pass before merge    |
-| Push tag `*.*`                   | `docker.release.yml` | Verify tag is on `main`, build multi-arch (`linux/amd64`, `linux/arm64`), push to YC CR, SBOM + SLSA provenance, cosign sign | Release                          |
+| Trigger                          | Workflow      | What runs                                                                                                                    | Purpose                          |
+| -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Push to any branch except `main` | `feature.yml` | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                        | Fast feedback during development |
+| PR into `main`                   | `pr.yml`      | Build amd64 image, Trivy scan (HIGH/CRITICAL), SARIF upload, smoke test                                                      | Gate — must pass before merge    |
+| Push tag `*.*`                   | `release.yml` | Verify tag is on `main`, build multi-arch (`linux/amd64`, `linux/arm64`), push to YC CR, SBOM + SLSA provenance, cosign sign | Release                          |
 
 ### Design Goals
 
@@ -29,7 +29,7 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 ### Security Checks
 
-- **GitGuardian Scan** (`gitguardian.yml`) — runs on every push to `main` and every PR into `main` to detect leaked
+- **GitGuardian Scan** (part of `feature.yml`) — runs on every push to any branch except `main` to detect leaked
   secrets.
 - **Trivy Image Scan** — runs during PR gate with severity `HIGH,CRITICAL` and `ignore-unfixed: true`. Findings are
   uploaded to GitHub Code Scanning alerts.
@@ -49,8 +49,8 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 PR and release builds share a **registry cache** stored in YC CR at `cr.yandex/<id>/github/personal/cache/devcr:latest`.
 
-- **PR build** (`docker.pr.yml`) writes cache after scanning.
-- **Release build** (`docker.release.yml`) reads the same cache before building multi-arch, significantly reducing
+- **PR build** (`pr.yml`) writes cache after scanning.
+- **Release build** (`release.yml`) reads the same cache before building multi-arch, significantly reducing
   redundant layer builds.
 
 This avoids the limitations of GHA cache (`type=gha`), where PR caches are isolated to the merge ref and invisible to
