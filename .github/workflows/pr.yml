@@ -22,7 +22,7 @@ permissions:
 jobs:
   scan:
     name: build-and-scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write   # upload Trivy SARIF to Code Scanning

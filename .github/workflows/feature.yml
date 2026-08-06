@@ -12,7 +12,7 @@ permissions:
 jobs:
   hadolint:
     name: hadolint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -24,7 +24,7 @@ jobs:
 
   trivy-scan:
     name: trivy-scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -39,7 +39,7 @@ jobs:
 
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -51,7 +51,7 @@ jobs:
 
   gitguardian-scan:
     name: gitguardian-scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
