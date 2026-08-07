@@ -22,6 +22,7 @@ go = "1.26.5"
 "aqua:fish-shell/fish-shell" = "4.8.0"
 "aqua:tealdeer-rs/tealdeer" = "1.8.1"
 claude = "2.1.206"
+uv = "0.11.29"
 
 [settings]
 experimental = false
