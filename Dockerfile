@@ -158,8 +158,7 @@ RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${D
     && nvim --headless "+Lazy! restore" +qa \
     && pi install git:github.com/leonidgrishenkov/pi-extensions \
     && npx -y github:leonidgrishenkov/agent-skills install --target pi --target claude \
-    && bat cache --build \
-    && rm /tmp/stow-packages
+    && bat cache --build
 
 # Overwrite Mason's prebuilt shfmt (built with Go 1.26.1, vuln stdlib) with the
 # source-built copy from the Go step above (built with Go 1.26.5). Mason names the
