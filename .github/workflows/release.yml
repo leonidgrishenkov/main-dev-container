@@ -1,5 +1,5 @@
 ---
-name: release-docker-image
+name: release
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
   # off-main tags (the tag ref itself still exists in Git; nothing is released).
   tag-ref-gate:
     name: tag-ref-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -51,7 +51,7 @@ jobs:
   push:
     name: build-and-push
     needs: tag-ref-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write          # OIDC for cosign keyless signing
