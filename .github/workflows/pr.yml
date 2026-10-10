@@ -100,12 +100,18 @@ jobs:
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
+      # Suppressions live in .trivyignore.yaml: path-scoped, justified, expiring.
+      # Trivy only reads .trivyignore by default, so the YAML file must be passed.
+      # limit-severities-for-sarif: with format sarif, trivy-action otherwise drops
+      # `severity`, and exit-code would fail the gate on MEDIUM/LOW findings too.
       - name: scan-image-trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.FULL_IMAGE }}:${{ github.sha }}
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           exit-code: '1'
           format: sarif
           output: trivy-results.sarif

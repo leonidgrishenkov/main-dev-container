@@ -13,7 +13,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 ARG MISE_VERSION
 # Single source of truth for the Go toolchain; it is deliberately not in mise.toml.
-ARG GO_VERSION=1.26.5
+ARG GO_VERSION=1.26.9
 
 # ca-certificates for TLS to the module proxy, curl for the mise installer, git for
 # the GOPROXY "direct" fallback. Same version pins as ./apt-packages.
@@ -33,7 +33,7 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GOTOOLCHAIN=local \
 
 # Build the Go-based CLIs with the pinned Go toolchain so their embedded stdlib is
 # current. They are not in mise.toml because the mise prebuilts ship a stale Go stdlib
-# and some (direnv, glow) have no newer release at all. Dependencies resolve exactly as
+# and some (glow) have no newer release at all. Dependencies resolve exactly as
 # each upstream pins them: `go install pkg@ver` builds against the tool's own go.mod.
 # Earlier revisions force-bumped golang.org/x/* and grpc per tool to keep Trivy green;
 # that was dropped on purpose once the toolchain stopped shipping in the final image.
@@ -47,12 +47,12 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     go version && \
     # glow v2: NOTE the /v2 module path (v1 is a different, older major).
     TOOLS=( \
-        direnv=github.com/direnv/direnv/v2@v2.37.1 \
-        lazygit=github.com/jesseduffield/lazygit@v0.63.1 \
+        direnv=github.com/direnv/direnv/v2@v2.38.2 \
+        lazygit=github.com/jesseduffield/lazygit@v0.65.1 \
         fzf=github.com/junegunn/fzf@v0.74.0 \
         shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.13.1 \
         glow=github.com/charmbracelet/glow/v2@v2.1.2 \
-        task=github.com/go-task/task/v3/cmd/task@v3.52.0 \
+        task=github.com/go-task/task/v3/cmd/task@v3.54.0 \
     ) && \
     # go install puts native binaries in bin/ but cross-compiled ones in bin/<os>_<arch>/.
     BIN_DIR="${GOPATH}/bin" && \
