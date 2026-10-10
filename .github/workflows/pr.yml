@@ -165,27 +165,15 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
-      # Smoke test: run `docker run --rm <image>` with args.
+      # Smoke test: assert the image actually works (mise tools, Go CLIs, stowed
+      # dotfiles, nvim plugins, user/shell, no Go toolchain). The script is
+      # mounted, not baked into the image; run it locally the same way.
       - name: run-smoke-test
         run: |
-          IMG="${{ env.FULL_IMAGE }}:${{ github.sha }}"
-          ARGS="--version"
-          case "$ARGS" in
-            -*)
-              EP_LEN=$(docker inspect -f '{{len .Config.Entrypoint}}' "$IMG")
-              if [ "$EP_LEN" = "0" ]; then
-                CMD0=$(docker inspect -f '{{if .Config.Cmd}}{{index .Config.Cmd 0}}{{end}}' "$IMG")
-                if [ -z "$CMD0" ]; then
-                  echo "::error::smoke-test-args start with '-' ('$ARGS') but the image has no ENTRYPOINT/CMD to prepend. Pass a full command (e.g. 'fish --version') instead."
-                  exit 1
-                fi
-                echo "::notice::smoke-test-args start with a flag; prepending image CMD[0] ('$CMD0') -> running: $CMD0 $ARGS"
-                ARGS="$CMD0 $ARGS"
-              fi
-              ;;
-          esac
-          # shellcheck disable=SC2086
-          docker run --rm "$IMG" $ARGS
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/scripts/smoke.sh:/opt/smoke.sh:ro" \
+            "${{ env.FULL_IMAGE }}:${{ github.sha }}" \
+            bash /opt/smoke.sh
 
       - name: write-scan-summary
         if: always()
