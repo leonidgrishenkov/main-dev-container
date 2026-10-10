@@ -79,6 +79,12 @@ vulnerabilities:
     expired_at: 2027-04-10
 
   # --- npm bundled with Node (mise install) -----------------------------------
+  # Node's bundled npm deps are NOT refreshed by every Node minor bump (26.3.1,
+  # 26.4.0 and 26.5.0 all shipped the same undici/tar/brace-expansion); only a
+  # Node release that carries a newer npm moves them. They used to be patched in
+  # place in the Dockerfile with equality-pinned version guards, which broke the
+  # build on any Node bump that shipped a newer copy. Now: bump `node` in
+  # mise.toml when a release fixes them, and suppress what is left here.
   # npm runs only when the user invokes npm/npx by hand, or at build time on
   # first-party repos (npx github:leonidgrishenkov/agent-skills).
   - id: CVE-2026-19534
@@ -87,32 +93,16 @@ vulnerabilities:
       undici WebSocket handshake crash. npm reaches undici only through node-gyp
       for HTTPS header downloads and never opens a WebSocket.
     expired_at: 2027-04-10
-  - id: CVE-2026-69152
+  - id: CVE-2026-102276
     paths: &npm-brace [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/brace-expansion/package.json]
     statement: &npm-brace-why >-
       brace-expansion DoS on crafted patterns, reached via minimatch on ignore
       and files globs. Impact is a crash of the user's own npm run; no service
       or other user shares the process.
     expired_at: 2027-04-10
-  - id: CVE-2026-102276
-    paths: *npm-brace
-    statement: *npm-brace-why
-    expired_at: 2027-04-10
   - id: CVE-2026-102278
     paths: *npm-brace
     statement: *npm-brace-why
-    expired_at: 2027-04-10
-  - id: CVE-2026-69192
-    paths: [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/ip-address/package.json]
-    statement: >-
-      ip-address octal/decimal host disagreement (SSRF class). npm reaches it only
-      via socks for SOCKS proxy support, parsing the user's own proxy config.
-    expired_at: 2027-04-10
-  - id: CVE-2026-9496
-    paths: [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/pacote/package.json]
-    statement: >-
-      pacote addGitSha regex CPU DoS on a crafted git spec. Impact is a stalled
-      npm run started by the user; no service or other user shares the process.
     expired_at: 2027-04-10
 
   # --- pi-extensions node_modules (installed by `pi install` from the dotfiles) ---

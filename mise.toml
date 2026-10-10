@@ -1,5 +1,7 @@
 [tools]
-node = "26.3.1"
+# npm ships inside Node, and a Node bump only refreshes npm's bundled deps when
+# that release carries a newer npm. Findings left in them: .trivyignore.yaml.
+node = "26.11.1"
 neovim = "0.12.3"
 # Go-based CLIs (fzf/lazygit/task/direnv/glow/shfmt) are NOT pinned here: their
 # mise prebuilts ship a stale Go stdlib (some have no newer release). They are
