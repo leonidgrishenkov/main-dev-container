@@ -106,7 +106,8 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} \
     && useradd -l -m -u ${USER_ID} -g ${GROUP_ID} -G sudo -s /usr/local/bin/fish ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME} \
-    && rm -f /var/log/lastlog /var/log/faillog
+    && rm -f /var/log/lastlog /var/log/faillog \
+    && install -m 0644 -o ${USER_ID} -g ${GROUP_ID} /dev/null /etc/devcr-dotfiles-sha
 
 ENV HOME=/home/${USERNAME}
 ENV DOTFILES_DIR=${HOME}/dotfiles
@@ -118,13 +119,30 @@ ENV NVIM_CLIPBOARD=osc52
 USER ${USERNAME}
 
 ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
+# Branch, tag or full 40-char commit SHA of the dotfiles. The default tracks the tip
+# of main, so two builds of the same commit can differ; pin a SHA to reproduce one.
+# The resolved commit is printed in the build log and kept in /etc/devcr-dotfiles-sha.
+ARG DOTFILES_REF=main
 ARG XDG_DATA_HOME=${HOME}/.local/share
 
 WORKDIR ${DOTFILES_DIR}
 
 COPY ./stow-packages /tmp/stow-packages
 
-RUN git clone -q --depth=1 -b "main" --single-branch "${DOTFILES_REPO_URL}" "${DOTFILES_DIR}" \
+# A branch or tag is cloned as before (a branch stays checked out, so `git pull` works
+# in the container). `clone --branch` cannot take a commit SHA, so a SHA is fetched
+# on its own and checked out detached.
+RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
+        git init -q "${DOTFILES_DIR}" \
+        && git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO_URL}" \
+        && git -C "${DOTFILES_DIR}" fetch -q --depth=1 origin "${DOTFILES_REF}" \
+        && git -C "${DOTFILES_DIR}" checkout -q FETCH_HEAD; \
+    else \
+        git clone -q --depth=1 --branch "${DOTFILES_REF}" --single-branch "${DOTFILES_REPO_URL}" "${DOTFILES_DIR}"; \
+    fi \
+    && DOTFILES_SHA="$(git -C "${DOTFILES_DIR}" rev-parse HEAD)" \
+    && echo "dotfiles: ${DOTFILES_REPO_URL} ${DOTFILES_REF} -> ${DOTFILES_SHA}" \
+    && echo "${DOTFILES_SHA}" > /etc/devcr-dotfiles-sha \
     && eval "$(mise hook-env)" \
     && cat /tmp/stow-packages | xargs -I {} stow {} \
     && nvim --headless "+Lazy! restore" +qa \

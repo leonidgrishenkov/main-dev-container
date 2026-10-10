@@ -79,6 +79,29 @@ jobs:
           username: json_key
           password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
 
+      # Resolve the dotfiles ref the Dockerfile defaults to (normally the tip of main)
+      # to one commit, then build with exactly that commit and label the image with
+      # it. The label is the commit the build checked out, not a separate guess.
+      - name: resolve-dotfiles-revision
+        id: dotfiles
+        run: |
+          URL="$(sed -n 's/^ARG DOTFILES_REPO_URL=//p' Dockerfile)"
+          REF="$(sed -n 's/^ARG DOTFILES_REF=//p' Dockerfile)"
+          if [[ "${REF}" =~ ^[0-9a-f]{40}$ ]]; then
+            SHA="${REF}"
+          else
+            # Prefer a branch, then the commit an annotated tag points to, then a lightweight tag.
+            SHA="$(git ls-remote "${URL}" "refs/heads/${REF}" "refs/tags/${REF}" "refs/tags/${REF}^{}" \
+              | awk -v r="${REF}" '$2 == "refs/heads/" r { h = $1 } $2 == "refs/tags/" r { t = $1 }
+                                   $2 == "refs/tags/" r "^{}" { p = $1 } END { print h ? h : (p ? p : t) }')"
+          fi
+          if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not resolve dotfiles ref '${REF}' at ${URL}."
+            exit 1
+          fi
+          echo "::notice::Dotfiles ${URL} ${REF} -> ${SHA}"
+          { echo "url=${URL}"; echo "sha=${SHA}"; } >> "$GITHUB_OUTPUT"
+
       - name: derive-tags-and-labels
         id: meta
         uses: docker/metadata-action@v6
@@ -95,6 +118,8 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            io.github.leonidgrishenkov.devcr.dotfiles.source=${{ steps.dotfiles.outputs.url }}
+            io.github.leonidgrishenkov.devcr.dotfiles.revision=${{ steps.dotfiles.outputs.sha }}
 
       # Build multi-arch from registry cache (written by PR scan), then push with
       # SBOM + SLSA provenance attestations attached.
@@ -110,6 +135,8 @@ jobs:
             ${{ env.FULL_IMAGE }}:${{ github.sha }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DOTFILES_REF=${{ steps.dotfiles.outputs.sha }}
           provenance: mode=max
           sbom: true
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:latest
@@ -135,6 +162,7 @@ jobs:
             echo "| Image | \`${{ env.FULL_IMAGE }}\` |"
             echo "| Platforms | \`${{ env.PLATFORMS }}\` |"
             echo "| Digest | \`${{ steps.push.outputs.digest }}\` |"
+            echo "| Dotfiles | \`${{ steps.dotfiles.outputs.sha }}\` |"
             echo "| Attestations | provenance=\`mode=max\` sbom=\`true\` |"
             echo "| Signed | ✅ cosign keyless (OIDC) |"
             echo "| Scan | Security › Code scanning alerts (Trivy SARIF from PR) |"
