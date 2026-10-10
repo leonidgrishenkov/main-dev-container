@@ -1,0 +1,161 @@
+# Trivy suppressions for the PR image gate (.github/workflows/pr.yml).
+#
+# Policy: the gate stays strict for the base OS, curl/git/gnupg, OpenSSL, the Go
+# stdlib and anything else in a TLS/crypto path or that parses untrusted network
+# input. Those get FIXED (bump the package, toolchain or tool), never listed here.
+# Only dev tooling driven interactively by the single trusted user of this
+# container may be suppressed, and only when it is not exploitable here AND no
+# upstream release fixes it (or the fix belongs to another repo).
+#
+# Rules for every entry:
+#   - `paths` is mandatory. An unscoped id would also hide the same CVE in an OS
+#     package or in another tool, which is exactly what the gate must catch.
+#   - `statement` says why it is not exploitable HERE, not just "dev tool".
+#   - `expired_at` is ~6 months out. On expiry Trivy reports the finding again and
+#     the gate fails, forcing a deliberate re-check. Do not just bump the date:
+#     first look for an upstream release that makes the entry unnecessary.
+#
+# Field names are Trivy's: `expired_at` (underscore). An unknown key such as
+# `expired-at` is silently ignored and the entry would never expire.
+
+vulnerabilities:
+  # --- glow v2.1.2 (usr/local/bin/glow) ------------------------------------
+  # Client-only Markdown viewer: no listener, no credentials, output is ANSI text
+  # in a terminal. No fixed release: v2.1.2 is the last v2 and v3.0.0 still pins
+  # golang.org/x/net v0.53.0. Worst case for every entry below is a hang or crash
+  # of the user's own foreground glow process.
+  - id: CVE-2026-25681
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net/html Render XSS. Needs the re-rendered HTML to reach a browser; glow
+      writes ANSI text to the user's terminal, so there is no script sink.
+    expired_at: 2027-04-10
+  - id: CVE-2026-27136
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net/html Render XSS. Needs the re-rendered HTML to reach a browser; glow
+      writes ANSI text to the user's terminal, so there is no script sink.
+    expired_at: 2027-04-10
+  - id: CVE-2026-33814
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net HTTP/2 client loop on SETTINGS_MAX_FRAME_SIZE=0. Only reachable when
+      the user points glow at a URL on a malicious server; impact is a hang of
+      that foreground process (Ctrl-C).
+    expired_at: 2027-04-10
+  - id: CVE-2026-39821
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net/idna accepts bogus Punycode labels, which matters for hostname-based
+      privilege checks. glow makes no host-based trust decisions and attaches no
+      credentials to requests.
+    expired_at: 2027-04-10
+  - id: CVE-2026-46600
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net/dns/dnsmessage panic on an invalid SVCB/HTTPS record. Impact is a
+      crash of the user's own foreground glow process; nothing else shares it.
+    expired_at: 2027-04-10
+  - id: CVE-2026-78669
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/net HTTP/2 CPU exhaustion from a malicious peer. glow is only an HTTP
+      client when the user passes a URL; impact is a slow foreground process.
+    expired_at: 2027-04-10
+  - id: CVE-2026-56852
+    paths: [usr/local/bin/glow]
+    statement: >-
+      x/text norm.Iter infinite loop on invalid UTF-8. Impact is a hang of the
+      user's own foreground glow process on a malformed file (Ctrl-C).
+    expired_at: 2027-04-10
+
+  # --- task v3.54.0 (usr/local/bin/task) -------------------------------------
+  - id: CVE-2026-78669
+    paths: [usr/local/bin/task]
+    statement: >-
+      x/net HTTP/2 CPU exhaustion from a malicious peer. task only speaks HTTP for
+      remote Taskfiles, an opt-in experiment; impact is a slow foreground run.
+      v3.54.0 is the latest release and still pins x/net v0.59.0 (fix: v0.60.0).
+    expired_at: 2027-04-10
+
+  # --- npm bundled with Node (mise install) -----------------------------------
+  # Node's bundled npm deps are NOT refreshed by every Node minor bump (26.3.1,
+  # 26.4.0 and 26.5.0 all shipped the same undici/tar/brace-expansion); only a
+  # Node release that carries a newer npm moves them. They used to be patched in
+  # place in the Dockerfile with equality-pinned version guards, which broke the
+  # build on any Node bump that shipped a newer copy. Now: bump `node` in
+  # mise.toml when a release fixes them, and suppress what is left here.
+  # npm runs only when the user invokes npm/npx by hand, or at build time on
+  # first-party repos (npx github:leonidgrishenkov/agent-skills).
+  - id: CVE-2026-19534
+    paths: [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/undici/package.json]
+    statement: >-
+      undici WebSocket handshake crash. npm reaches undici only through node-gyp
+      for HTTPS header downloads and never opens a WebSocket.
+    expired_at: 2027-04-10
+  - id: CVE-2026-102276
+    paths: &npm-brace [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/brace-expansion/package.json]
+    statement: &npm-brace-why >-
+      brace-expansion DoS on crafted patterns, reached via minimatch on ignore
+      and files globs. Impact is a crash of the user's own npm run; no service
+      or other user shares the process.
+    expired_at: 2027-04-10
+  - id: CVE-2026-102278
+    paths: *npm-brace
+    statement: *npm-brace-why
+    expired_at: 2027-04-10
+
+  # --- pi-extensions node_modules (installed by `pi install` from the dotfiles) ---
+  # First-party repo. Its code imports only the MCP SDK *client* (stdio, SSE,
+  # streamable HTTP) with static bearer tokens; the SDK's server side (express,
+  # express-rate-limit) is never loaded. The fix is a lockfile bump in
+  # github.com/leonidgrishenkov/pi-extensions, not in this repo.
+  - id: CVE-2026-104850
+    paths: [home/devel/dotfiles/pi/.pi/agent/git/github.com/leonidgrishenkov/pi-extensions/node_modules/@modelcontextprotocol/sdk/package.json]
+    statement: >-
+      MCP SDK OAuth client sends credentials to a server-chosen authorization
+      server. pi-extensions passes no authProvider (bearer tokens via requestInit
+      only, "No OAuth" by design), so the vulnerable OAuth flow never runs.
+    expired_at: 2027-04-10
+  - id: CVE-2026-90711
+    paths: [home/devel/dotfiles/pi/.pi/agent/git/github.com/leonidgrishenkov/pi-extensions/node_modules/proxy-addr/package.json]
+    statement: >-
+      proxy-addr trusts every IPv4 peer for some IPv4-mapped trust subnets; it
+      backs Express req.ip. Pulled in only by the MCP SDK's server-side express
+      transport, which pi-extensions never imports or starts.
+    expired_at: 2027-04-10
+  - id: CVE-2026-69192
+    paths: [home/devel/dotfiles/pi/.pi/agent/git/github.com/leonidgrishenkov/pi-extensions/node_modules/ip-address/package.json]
+    statement: >-
+      ip-address octal/decimal host disagreement (SSRF class). Pulled in only via
+      express-rate-limit by the MCP SDK's server side, never loaded here. The
+      web-fetch SSRF guard uses node:net and node:dns, not ip-address.
+    expired_at: 2027-04-10
+  - id: CVE-2026-18446
+    paths: &pi-fast-uri [home/devel/dotfiles/pi/.pi/agent/git/github.com/leonidgrishenkov/pi-extensions/node_modules/fast-uri/package.json]
+    statement: &pi-fast-uri-why >-
+      fast-uri host confusion / SSRF. Used by ajv only to normalise schema $id and
+      $ref keys for in-memory lookup; ajv makes no request with the result, and
+      the MCP server supplying the schema also supplies the data it validates,
+      so no trust boundary is crossed.
+    expired_at: 2027-04-10
+  - id: CVE-2026-75899
+    paths: *pi-fast-uri
+    statement: *pi-fast-uri-why
+    expired_at: 2027-04-10
+  - id: CVE-2026-75931
+    paths: *pi-fast-uri
+    statement: *pi-fast-uri-why
+    expired_at: 2027-04-10
+  - id: CVE-2026-75975
+    paths: *pi-fast-uri
+    statement: *pi-fast-uri-why
+    expired_at: 2027-04-10
+  - id: CVE-2026-76172
+    paths: *pi-fast-uri
+    statement: *pi-fast-uri-why
+    expired_at: 2027-04-10
+  - id: CVE-2026-84292
+    paths: *pi-fast-uri
+    statement: *pi-fast-uri-why
+    expired_at: 2027-04-10
