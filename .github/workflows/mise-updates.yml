@@ -1,0 +1,92 @@
+---
+name: mise-updates
+
+# Weekly PR that bumps the pinned tool versions in mise.toml (dependabot covers
+# the Dockerfile and actions, not mise).
+#
+# The PR is opened with the default GITHUB_TOKEN, and GitHub does not start other
+# workflows for events created with that token. So pr.yml (build, Trivy gate,
+# smoke test) does NOT run on these PRs by itself: close and reopen the PR to
+# start it. This is deliberate (no extra PAT secret to manage), not a bug.
+# Requires the repository setting "Allow GitHub Actions to create and approve
+# pull requests".
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mise-updates
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: bump-mise-pins
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write         # push the update branch
+      pull-requests: write    # open or update the PR
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # authenticated GitHub API calls from mise
+      MISE_YES: '1'
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      # Same mise version the image installs (Dockerfile MISE_VERSION).
+      - name: install-mise
+        run: |
+          MISE_VERSION="$(sed -n 's/^ARG MISE_VERSION=//p' Dockerfile)"
+          mkdir -p "${RUNNER_TEMP}/bin"
+          curl -fsSL https://mise.run \
+            | MISE_VERSION="${MISE_VERSION}" MISE_INSTALL_PATH="${RUNNER_TEMP}/bin/mise" sh
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+
+      - name: plan-bumps
+        id: plan
+        run: |
+          mise trust mise.toml
+          mise outdated --bump --json > "${RUNNER_TEMP}/outdated.json"
+          BUMPS='to_entries[] | select(.value.bump != null)'
+          TOOLS="$(jq -r "${BUMPS} | .key" "${RUNNER_TEMP}/outdated.json" | paste -sd' ')"
+          echo "tools=${TOOLS}" >> "$GITHUB_OUTPUT"
+          # shellcheck disable=SC2016  # the backticks are literal Markdown
+          {
+            echo 'Weekly bump of the pinned tool versions in `mise.toml` (`mise outdated --bump`).'
+            echo
+            echo '| Tool | Pinned | New |'
+            echo '| --- | --- | --- |'
+            jq -r "${BUMPS} | \"| \`\(.key)\` | \(.value.requested) | \(.value.bump) |\"" "${RUNNER_TEMP}/outdated.json"
+            echo
+            echo '> [!IMPORTANT]'
+            echo '> Opened with the default `GITHUB_TOKEN`, so `pr.yml` (build, Trivy gate,'
+            echo '> smoke test) has not run on this PR. Close and reopen it to start the gate.'
+          } > "${RUNNER_TEMP}/pr-body.md"
+          echo "::notice::tools to bump: ${TOOLS:-none}"
+
+      # Upgrades only the tools that have a newer version; --bump rewrites their
+      # pins in mise.toml in place, keeping comments and formatting.
+      - name: apply-bumps
+        if: steps.plan.outputs.tools != ''
+        env:
+          TOOLS: ${{ steps.plan.outputs.tools }}
+        run: |
+          read -ra tools <<< "${TOOLS}"
+          mise upgrade --bump "${tools[@]}"
+          git diff -- mise.toml
+
+      - name: open-pull-request
+        if: steps.plan.outputs.tools != ''
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/mise-updates
+          delete-branch: true
+          add-paths: mise.toml
+          commit-message: 'chore(deps): bump mise tool pins'
+          title: 'chore(deps): bump mise tool pins'
+          body-path: ${{ runner.temp }}/pr-body.md
+          assignees: leonidgrishenkov
