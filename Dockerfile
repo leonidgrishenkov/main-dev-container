@@ -71,9 +71,15 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 
 COPY ./apt-packages /tmp/apt-packages
-RUN apt-get update -q \
+# Nothing else in this layer's cache key changes when Debian ships security fixes, so
+# without this a registry-cached copy would be reused for months with stale packages.
+# CI passes the ISO week (e.g. 2026-W41), so the layer, and every layer after it, is
+# rebuilt weekly and picks up the fixes. `apt-get upgrade` upgrades everything.
+ARG APT_REFRESH=local
+RUN echo "apt refresh: ${APT_REFRESH}" \
+    && apt-get update -q \
     && xargs -a /tmp/apt-packages apt-get install -y --no-install-recommends -q \
-    && apt-get upgrade -y -q curl libcap2 libcurl3t64-gnutls libcurl4t64 \
+    && apt-get upgrade -y -q \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/apt-packages
 

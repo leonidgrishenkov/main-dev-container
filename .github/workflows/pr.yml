@@ -65,6 +65,9 @@ jobs:
         run: |
           FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
           echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
+          # ISO week: rebuilds the apt layer (and everything after it) once a week so
+          # Debian security fixes are not hidden behind the registry cache.
+          echo "APT_REFRESH=$(date -u +%G-W%V)" >> "$GITHUB_ENV"
           echo "::notice::Scanning ${FULL}:${{ github.sha }}"
 
       - name: set-up-buildx
@@ -93,6 +96,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           load: true
+          build-args: |
+            APT_REFRESH=${{ env.APT_REFRESH }}
           tags: ${{ env.FULL_IMAGE }}:${{ github.sha }}
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:latest
           cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:latest,mode=max

@@ -65,6 +65,9 @@ jobs:
           echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
           CACHE_REPO="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/cache"
           echo "CACHE_IMAGE=${CACHE_REPO}/${IMAGE_NAME}" >> "$GITHUB_ENV"
+          # Same weekly apt refresh as pr.yml: a release in the week of its PR reuses
+          # the scanned apt layer; a later one rebuilds it with current fixes.
+          echo "APT_REFRESH=$(date -u +%G-W%V)" >> "$GITHUB_ENV"
 
       - name: set-up-qemu-multi-arch
         uses: docker/setup-qemu-action@v4
@@ -136,6 +139,7 @@ jobs:
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            APT_REFRESH=${{ env.APT_REFRESH }}
             DOTFILES_REF=${{ steps.dotfiles.outputs.sha }}
           provenance: mode=max
           sbom: true

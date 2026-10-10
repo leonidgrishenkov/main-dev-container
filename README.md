@@ -23,6 +23,7 @@ fixtures and build tools never ship, so they cannot carry vulnerabilities into t
 | `GO_VERSION`   | pinned  | Go toolchain for the `go-builder` stage. The single source of truth for Go; it is deliberately not in `mise.toml`.                                                                                      |
 | `DOTFILES_REF` | `main`  | Branch, tag or full 40-char commit SHA of the [dotfiles](https://github.com/leonidgrishenkov/dotfiles). The default follows `main`, so two builds of one commit can differ; pin a SHA to reproduce one. |
 | `MISE_VERSION` | pinned  | mise release installed in both stages.                                                                                                                                                                  |
+| `APT_REFRESH`  | `local` | Cache key for the apt layer. CI passes the ISO week, so OS packages are re-fetched (with Debian security fixes) at least weekly instead of being reused from the registry cache.                        |
 
 The dotfiles commit an image was built from is printed in the build log and kept in `/etc/devcr-dotfiles-sha`.
 Release images also carry it as the `io.github.leonidgrishenkov.devcr.dotfiles.revision` label.
@@ -135,6 +136,10 @@ PR and release builds share a **registry cache** stored in YC CR at `cr.yandex/<
 
 This avoids the limitations of GHA cache (`type=gha`), where PR caches are isolated to the merge ref and invisible to
 release workflows.
+
+Cached layers never pick up Debian security updates on their own, because nothing in the apt layer's cache key changes
+when Debian ships them. Both workflows therefore pass the ISO week as `APT_REFRESH`, which rebuilds the apt layer and
+everything after it once a week; within a week, a release reuses the layers its PR scanned.
 
 The release build passes the resolved dotfiles commit as `DOTFILES_REF`, so its dotfiles layer is rebuilt for that
 exact commit rather than reused from whatever `main` was when the PR cache was written.
