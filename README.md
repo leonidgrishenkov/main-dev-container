@@ -49,12 +49,12 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 ### Workflow Triggers
 
-| Trigger                          | Workflow           | What runs                                                                                                                                                  | Purpose                          |
-| -------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                       | Fast feedback during development |
-| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`, Claude code review (on open)                         | Gate — must pass before merge    |
-| Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to ECR Public, SBOM + SLSA provenance, cosign sign | Release                          |
-| Weekly (Mon 06:00 UTC) or manual | `mise-updates.yml` | `mise outdated --bump`, rewrite the changed pins in `mise.toml`, open/update one PR                                                                        | Keep `mise.toml` pins current    |
+| Trigger                          | Workflow           | What runs                                                                                                                                                   | Purpose                          |
+| -------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                        | Fast feedback during development |
+| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`, Claude code review (on open)                          | Gate — must pass before merge    |
+| Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to private ECR, SBOM + SLSA provenance, cosign sign | Release                          |
+| Weekly (Mon 06:00 UTC) or manual | `mise-updates.yml` | `mise outdated --bump`, rewrite the changed pins in `mise.toml`, open/update one PR                                                                         | Keep `mise.toml` pins current    |
 
 ### Design Goals
 
@@ -62,8 +62,8 @@ workflows are self-contained in this repository under `.github/workflows/`.
 - **No duplicate scanning on release.** The image is already scanned during the PR gate. The tag workflow goes straight
   to multi-arch build and push.
 - **No external reusable workflows.** All logic is inlined in this repo for full control.
-- **Cross-run cache sharing.** PR and release builds share a **registry cache** in ECR Public (`devcr:buildcache`) so
-  layers are reused across workflows.
+- **Cross-run cache sharing.** PR and release builds share a **registry cache** in ECR (`devcr:buildcache`) so layers
+  are reused across workflows.
 
 
 ### Security Checks
@@ -115,15 +115,15 @@ filter whenever the output format is SARIF.
 
 | Name                 | Type     | Source                       | Purpose                                                                                     |
 | -------------------- | -------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `AWS_ROLE_ARN`       | variable | `vars.AWS_ROLE_ARN`          | IAM role assumed via GitHub OIDC to push to `public.ecr.aws/a8c0b5z6/devcr`                 |
+| `AWS_ROLE_ARN`       | secret   | `secrets.AWS_ROLE_ARN`       | IAM role assumed via GitHub OIDC to push to the private ECR repository `devcr`              |
 | `GITHUB_TOKEN`       | secret   | auto-provided                | Authenticated GitHub API requests for `mise` package downloads; opens the `mise-updates` PR |
 | `OPENROUTER_API_KEY` | secret   | `secrets.OPENROUTER_API_KEY` | OpenRouter token used to authenticate the Claude PR review                                  |
 
-The `AWS_ROLE_ARN` role needs ECR Public push permissions (e.g. the `AmazonElasticContainerRegistryPublicPowerUser`
-managed policy, which includes `sts:GetServiceBearerToken`) and a trust policy for the GitHub OIDC provider
-(`token.actions.githubusercontent.com`) that allows the subjects
-`repo:leonidgrishenkov/main-dev-container:pull_request` (`pr.yml`) and
-`repo:leonidgrishenkov/main-dev-container:ref:refs/tags/*` (`release.yml`).
+The ECR repository and the `gha-devcr-push` role live in the infra repository
+(`cloud/aws/live/us-east-1/container/ecr/devcr` and `iam/ecr/devcr`); `AWS_ROLE_ARN` is that unit's `pusher_role_arn`
+output. The role trusts pull requests (`pr.yml`) and version tags (`release.yml`) of this repository. `AWS_ROLE_ARN` is
+a secret rather than a variable, and the workflows mask the account ID, so neither shows up in this public repository's
+logs.
 
 `mise-updates.yml` deliberately uses the default `GITHUB_TOKEN` instead of a PAT, which has two consequences:
 
@@ -133,7 +133,8 @@ managed policy, which includes `sts:GetServiceBearerToken`) and a trust policy f
 
 ### Cache Strategy
 
-PR and release builds share a **registry cache** stored in ECR Public at `public.ecr.aws/a8c0b5z6/devcr:buildcache`.
+PR and release builds share a **registry cache** stored as the moving `buildcache` tag of the private ECR repository
+`devcr`. Its lifecycle policy expires the untagged cache manifests that each build leaves behind after 7 days.
 
 - **PR build** (`pr.yml`) writes cache after scanning.
 - **Release build** (`release.yml`) reads the same cache before building multi-arch, significantly reducing

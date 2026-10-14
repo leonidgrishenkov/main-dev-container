@@ -11,8 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: public.ecr.aws
-  REGISTRY_ALIAS: a8c0b5z6
   IMAGE_NAME: devcr
 
 permissions:
@@ -56,18 +54,34 @@ jobs:
     permissions:
       contents: read
       security-events: write   # upload Trivy SARIF to Code Scanning
-      id-token: write          # OIDC to assume the AWS role for ECR Public
+      id-token: write          # OIDC to assume the AWS role for ECR
     steps:
       - name: checkout
         uses: actions/checkout@v7
 
+      # Login is needed to read and write the registry build cache.
+      # The role ARN is a secret and the account ID is masked, so neither shows up
+      # in the logs of this public repository.
+      - name: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+
+      - name: log-in-to-registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: prepare-image-reference
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
-          FULL="${REGISTRY}/${REGISTRY_ALIAS}/${IMAGE_NAME}"
+          FULL="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "FULL_IMAGE=${FULL}"
-            # Cache is a tag in the same repository: ECR Public repositories must be
-            # created up front, so there is no separate cache repository.
+            # Cache is a moving tag in the same repository; its lifecycle policy expires
+            # the untagged cache manifests that every build leaves behind.
             echo "CACHE_IMAGE=${FULL}:buildcache"
             # ISO week: rebuilds the apt layer (and everything after it) once a week so
             # Debian security fixes are not hidden behind the registry cache.
@@ -77,18 +91,6 @@ jobs:
 
       - name: set-up-buildx
         uses: docker/setup-buildx-action@v4
-
-      # Login is needed to write the registry build cache.
-      - name: configure-aws-credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1   # ECR Public issues auth tokens only in us-east-1
-
-      - name: log-in-to-registry
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
 
       # Build a single-arch image into the daemon so it can be scanned & smoke-tested.
       # (Multi-arch cannot be loaded locally, hence the amd64-only scan image.)

@@ -7,8 +7,6 @@ on:
       - '*.*'
 
 env:
-  REGISTRY: public.ecr.aws
-  REGISTRY_ALIAS: a8c0b5z6
   IMAGE_NAME: devcr
   PLATFORMS: linux/amd64,linux/arm64
 
@@ -58,9 +56,24 @@ jobs:
       - name: checkout
         uses: actions/checkout@v7
 
+      # The role ARN is a secret and the account ID is masked, so neither shows up
+      # in the logs of this public repository.
+      - name: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+
+      - name: log-in-to-registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: prepare-image-reference
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
-          FULL="${REGISTRY}/${REGISTRY_ALIAS}/${IMAGE_NAME}"
+          FULL="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "FULL_IMAGE=${FULL}"
             echo "CACHE_IMAGE=${FULL}:buildcache"
@@ -74,17 +87,6 @@ jobs:
 
       - name: set-up-buildx
         uses: docker/setup-buildx-action@v4
-
-      - name: configure-aws-credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1   # ECR Public issues auth tokens only in us-east-1
-
-      - name: log-in-to-aws-ecr-public
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
 
       # Resolve the dotfiles ref the Dockerfile defaults to (normally the tip of main)
       # to one commit, then build with exactly that commit and label the image with
