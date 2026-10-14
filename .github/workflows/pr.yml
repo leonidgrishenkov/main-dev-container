@@ -11,10 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: cr.yandex
-  REGISTRY_ID: ${{ vars.YC_REGISTRY_ID }}
+  REGISTRY: public.ecr.aws
+  REGISTRY_ALIAS: a8c0b5z6
   IMAGE_NAME: devcr
-  REGISTRY_REPO: github/personal
 
 permissions:
   contents: read
@@ -57,38 +56,44 @@ jobs:
     permissions:
       contents: read
       security-events: write   # upload Trivy SARIF to Code Scanning
+      id-token: write          # OIDC to assume the AWS role for ECR Public
     steps:
       - name: checkout
         uses: actions/checkout@v7
 
       - name: prepare-image-reference
         run: |
-          FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
-          echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
-          # ISO week: rebuilds the apt layer (and everything after it) once a week so
-          # Debian security fixes are not hidden behind the registry cache.
-          echo "APT_REFRESH=$(date -u +%G-W%V)" >> "$GITHUB_ENV"
+          FULL="${REGISTRY}/${REGISTRY_ALIAS}/${IMAGE_NAME}"
+          {
+            echo "FULL_IMAGE=${FULL}"
+            # Cache is a tag in the same repository: ECR Public repositories must be
+            # created up front, so there is no separate cache repository.
+            echo "CACHE_IMAGE=${FULL}:buildcache"
+            # ISO week: rebuilds the apt layer (and everything after it) once a week so
+            # Debian security fixes are not hidden behind the registry cache.
+            echo "APT_REFRESH=$(date -u +%G-W%V)"
+          } >> "$GITHUB_ENV"
           echo "::notice::Scanning ${FULL}:${{ github.sha }}"
 
       - name: set-up-buildx
         uses: docker/setup-buildx-action@v4
 
-      # Login is needed when the Dockerfile pulls a base image from the same YC registry.
-      - name: log-in-to-registry
-        uses: docker/login-action@v4
+      # Login is needed to write the registry build cache.
+      - name: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          registry: ${{ env.REGISTRY }}
-          username: json_key
-          password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1   # ECR Public issues auth tokens only in us-east-1
+
+      - name: log-in-to-registry
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
 
       # Build a single-arch image into the daemon so it can be scanned & smoke-tested.
       # (Multi-arch cannot be loaded locally, hence the amd64-only scan image.)
-      - name: generate-cache-image-reference
-        id: cache-meta
-        run: |
-          CACHE_REPO="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/cache"
-          echo "CACHE_IMAGE=${CACHE_REPO}/${IMAGE_NAME}" >> "$GITHUB_ENV"
-
+      # ECR rejects BuildKit's default cache manifest list, so the cache is exported
+      # as an OCI image manifest (image-manifest=true,oci-mediatypes=true).
       - name: build-for-scan
         uses: docker/build-push-action@v7
         with:
@@ -99,8 +104,8 @@ jobs:
           build-args: |
             APT_REFRESH=${{ env.APT_REFRESH }}
           tags: ${{ env.FULL_IMAGE }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:latest,mode=max
+          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }},mode=max,image-manifest=true,oci-mediatypes=true
           provenance: false
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
