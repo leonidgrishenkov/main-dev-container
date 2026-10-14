@@ -62,7 +62,7 @@ workflows are self-contained in this repository under `.github/workflows/`.
 - **No duplicate scanning on release.** The image is already scanned during the PR gate. The tag workflow goes straight
   to multi-arch build and push.
 - **No external reusable workflows.** All logic is inlined in this repo for full control.
-- **Cross-run cache sharing.** PR and release builds share a **registry cache** in ECR (`devcr:buildcache`) so layers
+- **Cross-run cache sharing.** PR and release builds share a **registry cache** in ECR (`buildcache/devcr`) so layers
   are reused across workflows.
 
 
@@ -78,6 +78,8 @@ workflows are self-contained in this repository under `.github/workflows/`.
 - **Tag Origin Verification** — the release workflow verifies that the pushed tag points to a commit that is an ancestor
   of `main`, preventing releases from arbitrary branches.
 - **Image Signing** — every release image is signed with **cosign** using keyless OIDC via GitHub Actions.
+- **Immutable Release Tags** — published `devcr` tags can't be overwritten. A failed release can't be re-run as is
+  (delete its tags first), and a second version tag on an already released commit fails on the commit-SHA tag.
 
 ### Vulnerability Policy
 
@@ -113,17 +115,18 @@ filter whenever the output format is SARIF.
 
 ### Secrets & Variables
 
-| Name                 | Type     | Source                       | Purpose                                                                                     |
-| -------------------- | -------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `AWS_ROLE_ARN`       | secret   | `secrets.AWS_ROLE_ARN`       | IAM role assumed via GitHub OIDC to push to the private ECR repository `devcr`              |
-| `GITHUB_TOKEN`       | secret   | auto-provided                | Authenticated GitHub API requests for `mise` package downloads; opens the `mise-updates` PR |
-| `OPENROUTER_API_KEY` | secret   | `secrets.OPENROUTER_API_KEY` | OpenRouter token used to authenticate the Claude PR review                                  |
+| Name                   | Type   | Source                         | Purpose                                                                                     |
+| ---------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `AWS_PR_ROLE_ARN`      | secret | `secrets.AWS_PR_ROLE_ARN`      | IAM role for `pr.yml` (GitHub OIDC): read/write on the build cache repository only          |
+| `AWS_RELEASE_ROLE_ARN` | secret | `secrets.AWS_RELEASE_ROLE_ARN` | IAM role for `release.yml` (GitHub OIDC): push to `devcr`, read/write the build cache       |
+| `GITHUB_TOKEN`         | secret | auto-provided                  | Authenticated GitHub API requests for `mise` package downloads; opens the `mise-updates` PR |
+| `OPENROUTER_API_KEY`   | secret | `secrets.OPENROUTER_API_KEY`   | OpenRouter token used to authenticate the Claude PR review                                  |
 
-The ECR repository and the `gha-devcr-push` role live in the infra repository
-(`cloud/aws/live/us-east-1/container/ecr/devcr` and `iam/ecr/devcr`); `AWS_ROLE_ARN` is that unit's `pusher_role_arn`
-output. The role trusts pull requests (`pr.yml`) and version tags (`release.yml`) of this repository. `AWS_ROLE_ARN` is
-a secret rather than a variable, and the workflows mask the account ID, so neither shows up in this public repository's
-logs.
+The ECR repositories and the roles live in the infra repository (`cloud/aws/live/us-east-1/container/ecr/devcr`,
+`container/ecr/buildcache/devcr` and `iam/ecr/devcr`); the secrets are that unit's `pr_role_arn` and `release_role_arn`
+outputs. `gha-devcr-pr` trusts pull requests of this repository and can only touch the cache repository, so pull request
+code can't change published images; `gha-devcr-release` trusts version tags. The role ARNs are secrets rather than
+variables, and the workflows mask the account ID, so neither shows up in this public repository's logs.
 
 `mise-updates.yml` deliberately uses the default `GITHUB_TOKEN` instead of a PAT, which has two consequences:
 
@@ -133,8 +136,9 @@ logs.
 
 ### Cache Strategy
 
-PR and release builds share a **registry cache** stored as the moving `buildcache` tag of the private ECR repository
-`devcr`. Its lifecycle policy expires the untagged cache manifests that each build leaves behind after 7 days.
+PR and release builds share a **registry cache** stored in its own private ECR repository, `buildcache/devcr` (tag
+`latest`). The image repository `devcr` has immutable tags, so the moving cache tag can't live there. The cache
+repository's lifecycle policy expires the untagged cache manifests that each build leaves behind after 7 days.
 
 - **PR build** (`pr.yml`) writes cache after scanning.
 - **Release build** (`release.yml`) reads the same cache before building multi-arch, significantly reducing
