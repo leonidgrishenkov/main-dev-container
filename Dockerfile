@@ -138,6 +138,9 @@ COPY ./stow-packages /tmp/stow-packages
 # A branch or tag is cloned as before (a branch stays checked out, so `git pull` works
 # in the container). `clone --branch` cannot take a commit SHA, so a SHA is fetched
 # on its own and checked out detached.
+# The dotfiles enable Mason's Socket Firewall, so Mason runs npm installs through sfw,
+# which writes a temporary CA private key to /tmp/sfw-*. `+qa` kills installs still in
+# flight, so sfw never cleans up; delete it in this same layer or the key ships.
 RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
         git init -q "${DOTFILES_DIR}" \
         && git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO_URL}" \
@@ -152,6 +155,7 @@ RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
     && eval "$(mise hook-env)" \
     && cat /tmp/stow-packages | xargs -I {} stow {} \
     && nvim --headless "+Lazy! restore" +qa \
+    && rm -rf /tmp/sfw-* \
     && pi install git:github.com/leonidgrishenkov/pi-extensions \
     && npx -y github:leonidgrishenkov/agent-skills install --target pi --target claude \
     && bat cache --build

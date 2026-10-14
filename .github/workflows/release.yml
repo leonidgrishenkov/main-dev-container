@@ -7,10 +7,7 @@ on:
       - '*.*'
 
 env:
-  REGISTRY: cr.yandex
-  REGISTRY_ID: ${{ vars.YC_REGISTRY_ID }}
   IMAGE_NAME: devcr
-  REGISTRY_REPO: github/personal
   PLATFORMS: linux/amd64,linux/arm64
 
 concurrency:
@@ -54,33 +51,42 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      id-token: write          # OIDC for cosign keyless signing
+      id-token: write          # OIDC for the AWS role and cosign keyless signing
     steps:
       - name: checkout
         uses: actions/checkout@v7
 
+      # The role ARN is a secret and the account ID is masked, so neither shows up
+      # in the logs of this public repository.
+      - name: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+
+      - name: log-in-to-registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: prepare-image-reference
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
-          FULL="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/${IMAGE_NAME}"
-          echo "FULL_IMAGE=${FULL}" >> "$GITHUB_ENV"
-          CACHE_REPO="${REGISTRY}/${REGISTRY_ID}/${REGISTRY_REPO}/cache"
-          echo "CACHE_IMAGE=${CACHE_REPO}/${IMAGE_NAME}" >> "$GITHUB_ENV"
-          # Same weekly apt refresh as pr.yml: a release in the week of its PR reuses
-          # the scanned apt layer; a later one rebuilds it with current fixes.
-          echo "APT_REFRESH=$(date -u +%G-W%V)" >> "$GITHUB_ENV"
+          FULL="${REGISTRY}/${IMAGE_NAME}"
+          {
+            echo "FULL_IMAGE=${FULL}"
+            echo "CACHE_IMAGE=${FULL}:buildcache"
+            # Same weekly apt refresh as pr.yml: a release in the week of its PR reuses
+            # the scanned apt layer; a later one rebuilds it with current fixes.
+            echo "APT_REFRESH=$(date -u +%G-W%V)"
+          } >> "$GITHUB_ENV"
 
       - name: set-up-qemu-multi-arch
         uses: docker/setup-qemu-action@v4
 
       - name: set-up-buildx
         uses: docker/setup-buildx-action@v4
-
-      - name: log-in-to-yandex-container-registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: json_key
-          password: ${{ secrets.YC_CR_SA_AUTH_JSON }}
 
       # Resolve the dotfiles ref the Dockerfile defaults to (normally the tip of main)
       # to one commit, then build with exactly that commit and label the image with
@@ -143,8 +149,8 @@ jobs:
             DOTFILES_REF=${{ steps.dotfiles.outputs.sha }}
           provenance: mode=max
           sbom: true
-          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:latest,mode=max
+          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }},mode=max,image-manifest=true,oci-mediatypes=true
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
