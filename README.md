@@ -1,8 +1,8 @@
 # Dev Container
 
-## Description
+## About
 
-Source of the image for development container where most of the tools I use preinstalled.
+A Docker development container image with pre-installed tools and utilities, featuring automated CI/CD pipelines, security scanning (Trivy, GitGuardian), multi-architecture builds, and image signing.
 
 ## Image Layout
 
