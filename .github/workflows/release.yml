@@ -61,7 +61,7 @@ jobs:
       - name: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_RELEASE_ROLE_ARN }}
           aws-region: us-east-1
           mask-aws-account-id: true
 
@@ -76,7 +76,7 @@ jobs:
           FULL="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "FULL_IMAGE=${FULL}"
-            echo "CACHE_IMAGE=${FULL}:buildcache"
+            echo "CACHE_IMAGE=${REGISTRY}/buildcache/${IMAGE_NAME}:latest"
             # Same weekly apt refresh as pr.yml: a release in the week of its PR reuses
             # the scanned apt layer; a later one rebuilds it with current fixes.
             echo "APT_REFRESH=$(date -u +%G-W%V)"

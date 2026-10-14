@@ -59,13 +59,14 @@ jobs:
       - name: checkout
         uses: actions/checkout@v7
 
-      # Login is needed to read and write the registry build cache.
+      # Login is needed to read and write the registry build cache. The PR role can
+      # only touch the cache repository, never the published images.
       # The role ARN is a secret and the account ID is masked, so neither shows up
       # in the logs of this public repository.
       - name: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
           mask-aws-account-id: true
 
@@ -80,9 +81,9 @@ jobs:
           FULL="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "FULL_IMAGE=${FULL}"
-            # Cache is a moving tag in the same repository; its lifecycle policy expires
-            # the untagged cache manifests that every build leaves behind.
-            echo "CACHE_IMAGE=${FULL}:buildcache"
+            # The cache has its own MUTABLE repository because devcr is IMMUTABLE; its
+            # lifecycle policy expires the untagged manifests every build leaves behind.
+            echo "CACHE_IMAGE=${REGISTRY}/buildcache/${IMAGE_NAME}:latest"
             # ISO week: rebuilds the apt layer (and everything after it) once a week so
             # Debian security fixes are not hidden behind the registry cache.
             echo "APT_REFRESH=$(date -u +%G-W%V)"
