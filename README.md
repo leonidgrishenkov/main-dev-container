@@ -52,9 +52,10 @@ workflows are self-contained in this repository under `.github/workflows/`.
 | Trigger                          | Workflow           | What runs                                                                                                                                                   | Purpose                          |
 | -------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                        | Fast feedback during development |
-| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`, Claude code review (on open)                          | Gate — must pass before merge    |
+| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`                                                        | Gate — must pass before merge    |
 | Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to private ECR, SBOM + SLSA provenance, cosign sign | Release                          |
-| Weekly (Mon 06:00 UTC) or manual | `mise-updates.yml` | `mise outdated --bump`, rewrite the changed pins in `mise.toml`, open/update one PR                                                                         | Keep `mise.toml` pins current    |
+
+Dependency update PRs come from Renovate, not from a workflow here (see [Dependency Updates](#dependency-updates)).
 
 ### Design Goals
 
@@ -102,37 +103,40 @@ Use Trivy's key `expired_at`; an unknown key such as `expired-at` is silently ig
 CI, `limit-severities-for-sarif: true` keeps the gate at `HIGH,CRITICAL`; without it `trivy-action` drops the severity
 filter whenever the output format is SARIF.
 
-### Claude Code Review
+### Dependency Updates
 
-- **`claude-review`** (part of `pr.yml`) — runs once, when a PR into `main` is **opened**, and posts an automated
-  code review (top-level + inline comments via `gh pr comment` / inline PR comments) using
-  [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action).
-- Authenticates through **OpenRouter** rather than a direct Anthropic API key: the action's `ANTHROPIC_BASE_URL` is
-  redirected to `https://openrouter.ai/api`, using `OPENROUTER_API_KEY` as the credential. This is an unofficial but
-  working setup (OpenRouter exposes an Anthropic-compatible endpoint) — not a first-class integration, so it can break
-  on action/CLI updates.
-- Does **not** gate the merge — it's advisory feedback only, separate from the `build-and-scan` job.
+[Renovate](https://docs.renovatebot.com/) (the hosted Mend Renovate GitHub App, configured in `.github/renovate.json5`)
+opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** issue that lists everything it tracks:
+
+| What                                                              | Where                                           | PR       |
+| ----------------------------------------------------------------- | ----------------------------------------------- | -------- |
+| Debian base image: newer dated `trixie-*-slim` tag and its digest | both `FROM` lines in `Dockerfile`               | own      |
+| GitHub Actions and runner images                                  | `.github/workflows/*.yml`                       | grouped  |
+| Tools in `mise.toml`                                              | `mise.toml`                                     | grouped  |
+| Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `glow`, `task`)     | `TOOLS` in the `go-builder` stage               | grouped  |
+| `MISE_VERSION`, `GO_VERSION`                                      | `Dockerfile` ARGs under a `# renovate:` comment | one each |
+
+- Major updates get a PR of their own. A Go CLI major is only listed on the dashboard for approval: it also changes the
+  module path (`/v2` → `/v3`), which has to be edited by hand.
+- Renovate PRs come from branches of this repository, so they get its secrets and run the full `pr.yml` gate (build,
+  Trivy, smoke test).
+- Closing a Renovate PR without merging it ignores that version.
+- To track another pinned version in the `Dockerfile`, put `# renovate: datasource=<datasource> depName=<name>` on the
+  line right above its `ARG NAME=<version>`.
 
 ### Secrets & Variables
 
-| Name                   | Type   | Source                         | Purpose                                                                                     |
-| ---------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------------- |
-| `AWS_PR_ROLE_ARN`      | secret | `secrets.AWS_PR_ROLE_ARN`      | IAM role for `pr.yml` (GitHub OIDC): read/write on the build cache repository only          |
-| `AWS_RELEASE_ROLE_ARN` | secret | `secrets.AWS_RELEASE_ROLE_ARN` | IAM role for `release.yml` (GitHub OIDC): push to `devcr`, read/write the build cache       |
-| `GITHUB_TOKEN`         | secret | auto-provided                  | Authenticated GitHub API requests for `mise` package downloads; opens the `mise-updates` PR |
-| `OPENROUTER_API_KEY`   | secret | `secrets.OPENROUTER_API_KEY`   | OpenRouter token used to authenticate the Claude PR review                                  |
+| Name                   | Type   | Source                         | Purpose                                                                               |
+| ---------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------- |
+| `AWS_PR_ROLE_ARN`      | secret | `secrets.AWS_PR_ROLE_ARN`      | IAM role for `pr.yml` (GitHub OIDC): read/write on the build cache repository only    |
+| `AWS_RELEASE_ROLE_ARN` | secret | `secrets.AWS_RELEASE_ROLE_ARN` | IAM role for `release.yml` (GitHub OIDC): push to `devcr`, read/write the build cache |
+| `GITHUB_TOKEN`         | secret | auto-provided                  | Authenticated GitHub API requests for `mise` package downloads                        |
 
 The ECR repositories and the roles live in the infra repository (`cloud/aws/live/us-east-1/container/ecr/devcr`,
 `container/ecr/buildcache/devcr` and `iam/ecr/devcr`); the secrets are that unit's `pr_role_arn` and `release_role_arn`
 outputs. `gha-devcr-pr` trusts pull requests of this repository and can only touch the cache repository, so pull request
 code can't change published images; `gha-devcr-release` trusts version tags. The role ARNs are secrets rather than
 variables, and the workflows mask the account ID, so neither shows up in this public repository's logs.
-
-`mise-updates.yml` deliberately uses the default `GITHUB_TOKEN` instead of a PAT, which has two consequences:
-
-- The repository setting **Allow GitHub Actions to create and approve pull requests** must be enabled.
-- GitHub does not start workflows for events created with that token, so `pr.yml` does not run on the update PR by
-  itself. **Close and reopen the PR** to run the gate; the PR body says so too.
 
 ### Cache Strategy
 

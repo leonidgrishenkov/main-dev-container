@@ -1,0 +1,61 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  // Run by the hosted Mend Renovate GitHub App. Unlike Dependabot (no repository
+  // secrets) and the old GITHUB_TOKEN-based mise-updates workflow (no workflow runs at
+  // all), its PRs get the full pr.yml gate: build, Trivy scan and smoke test.
+  extends: ['config:recommended'],
+  assignees: ['leonidgrishenkov'],
+  labels: ['dependencies'],
+  semanticCommits: 'enabled',
+  // Mondays, UTC. The hosted app does not run every hour, so the window is wide.
+  schedule: ['* 0-11 * * 1'],
+  packageRules: [
+    {
+      description: 'Base image: newer dated trixie slim tags only, the date read as year.month.day. The compatibility group keeps the Debian release (./apt-packages pins trixie versions).',
+      matchDatasources: ['docker'],
+      matchPackageNames: ['/(^|/)debian$/'],
+      versioning: 'regex:^(?<compatibility>[a-z]+)-(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})-slim$',
+    },
+    // Every PR builds and scans the whole image, so updates are grouped by kind.
+    // Major updates still get a PR of their own.
+    {
+      matchManagers: ['github-actions'],
+      groupName: 'GitHub Actions',
+    },
+    {
+      matchManagers: ['mise'],
+      groupName: 'mise tools',
+    },
+    {
+      matchManagers: ['custom.regex'],
+      matchDatasources: ['go'],
+      groupName: 'Go CLIs',
+    },
+    {
+      description: 'A Go major (v2 -> v3) also changes the module path (/v2 -> /v3), which the regex cannot rewrite, so the PR would only break the build. List majors on the Dependency Dashboard; bump them by hand.',
+      matchManagers: ['custom.regex'],
+      matchDatasources: ['go'],
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+  ],
+  customManagers: [
+    {
+      customType: 'regex',
+      description: 'Dockerfile ARGs annotated with a `# renovate:` comment (MISE_VERSION, GO_VERSION).',
+      managerFilePatterns: ['/(^|/)Dockerfile$/'],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG [A-Z_]+=(?<currentValue>\\S+)',
+      ],
+    },
+    {
+      customType: 'regex',
+      description: 'Go CLIs built in the go-builder stage, as `name=package@version`. The module is the package path without any /cmd/<name> suffix.',
+      managerFilePatterns: ['/(^|/)Dockerfile$/'],
+      matchStrings: [
+        '\\s(?<depName>[a-z0-9-]+)=(?<packageName>[^@\\s]+?)(?:/cmd/[^@\\s]+)?@(?<currentValue>v\\d\\S*)',
+      ],
+      datasourceTemplate: 'go',
+    },
+  ],
+}

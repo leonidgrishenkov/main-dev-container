@@ -1,18 +1,21 @@
 # Pre-FROM ARGs are shared by every stage that re-declares them (bare `ARG NAME`).
+# renovate: datasource=github-releases depName=jdx/mise
 ARG MISE_VERSION=v2026.7.3
 
-# trixie-20260713-slim
-# https://hub.docker.com/layers/library/debian/trixie-20260713-slim/images/sha256-53dfdbcd6fbc78c5052f35d2a5c798259f4c615cd93582b4ff5ad4f04249c7e3
+# The base image is pinned by tag and digest. The tag tells Renovate what to follow: newer
+# dated trixie-*-slim tags, never another Debian release (./apt-packages pins trixie
+# versions) or the full image. Renovate bumps both FROM lines together.
 # Builder for the Go CLIs. Same digest-pinned base as the final stage, so there is one
 # base image to track. It runs natively ($BUILDPLATFORM) and cross-compiles for
 # $TARGETARCH: the arm64 release build goes through QEMU, and compiling six Go
 # programs under emulation is extremely slow.
-FROM --platform=$BUILDPLATFORM docker.io/debian@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS go-builder
+FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20260713-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS go-builder
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 ARG MISE_VERSION
 # Single source of truth for the Go toolchain; it is deliberately not in mise.toml.
+# renovate: datasource=golang-version depName=go
 ARG GO_VERSION=1.26.9
 
 # ca-certificates for TLS to the module proxy, curl for the mise installer, git for
@@ -46,6 +49,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     PATH="$(mise where go@${GO_VERSION})/bin:${PATH}" && \
     go version && \
     # glow v2: NOTE the /v2 module path (v1 is a different, older major).
+    # Renovate bumps these `name=package@version` entries (see .github/renovate.json5).
     TOOLS=( \
         direnv=github.com/direnv/direnv/v2@v2.38.2 \
         lazygit=github.com/jesseduffield/lazygit@v0.65.1 \
@@ -63,7 +67,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     done
 
 # Same pinned base as go-builder above.
-FROM docker.io/debian@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
+FROM docker.io/debian:trixie-20260713-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
 
 USER root
 
