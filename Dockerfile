@@ -16,7 +16,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG MISE_VERSION
 # Single source of truth for the Go toolchain; it is deliberately not in mise.toml.
 # renovate: datasource=golang-version depName=go
-ARG GO_VERSION=1.26.9
+ARG GO_VERSION=1.27.3
 
 # ca-certificates for TLS to the module proxy, curl for the mise installer, git for
 # the GOPROXY "direct" fallback. Same version pins as ./apt-packages.
