@@ -52,9 +52,9 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     # Renovate bumps these `name=package@version` entries (see .github/renovate.json5).
     TOOLS=( \
         direnv=github.com/direnv/direnv/v2@v2.38.2 \
-        lazygit=github.com/jesseduffield/lazygit@v0.65.1 \
-        fzf=github.com/junegunn/fzf@v0.74.0 \
-        shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.13.1 \
+        lazygit=github.com/jesseduffield/lazygit@v0.66.2 \
+        fzf=github.com/junegunn/fzf@v0.74.5 \
+        shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.14.1 \
         glow=github.com/charmbracelet/glow/v2@v2.1.2 \
         task=github.com/go-task/task/v3/cmd/task@v3.54.0 \
     ) && \
