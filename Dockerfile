@@ -55,7 +55,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
         lazygit=github.com/jesseduffield/lazygit@v0.65.1 \
         fzf=github.com/junegunn/fzf@v0.74.0 \
         shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.13.1 \
-        glow=github.com/charmbracelet/glow/v2@v2.1.2 \
+        glow=github.com/charmbracelet/glow/v2@v3.0.0 \
         task=github.com/go-task/task/v3/cmd/task@v3.54.0 \
     ) && \
     # go install puts native binaries in bin/ but cross-compiled ones in bin/<os>_<arch>/.
