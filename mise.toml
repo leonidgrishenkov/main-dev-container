@@ -1,28 +1,28 @@
 [tools]
 # npm ships inside Node, and a Node bump only refreshes npm's bundled deps when
 # that release carries a newer npm. Findings left in them: .trivyignore.yaml.
-node = "26.11.1"
-neovim = "0.12.3"
+node = "26.13.0"
+neovim = "0.12.6"
 # Go-based CLIs (fzf/lazygit/task/direnv/glow/shfmt) are NOT pinned here: their
 # mise prebuilts ship a stale Go stdlib (some have no newer release). They are
 # built from source in the Dockerfile's go-builder stage.
-ripgrep = "15.1.0"
+ripgrep = "15.2.0"
 bat = "0.26.1"
-yazi = "26.5.6"
-starship = "1.25.1"
-delta = "0.19.2"
-atuin = "18.16.1"
-fd = "10.4.2"
+yazi = "26.9.1"
+starship = "1.27.0"
+delta = "0.20.1"
+atuin = "18.24.4"
+fd = "10.5.0"
 zoxide = "0.10.0"
-eza = "0.23.4"
+eza = "0.23.5"
 vivid = "0.11.1"
-tree-sitter = "0.25.10"
-pi = "0.81.1"
+tree-sitter = "0.27.1"
+pi = "0.99.2"
 # No `go` here: the toolchain lives only in the Dockerfile's go-builder stage and is
 # pinned by its GO_VERSION build arg (the single source of truth), so it never ships.
-"aqua:fish-shell/fish-shell" = "4.8.0"
-"aqua:tealdeer-rs/tealdeer" = "1.8.1"
-claude = "2.1.206"
+"aqua:fish-shell/fish-shell" = "4.9.3"
+"aqua:tealdeer-rs/tealdeer" = "1.9.1"
+claude = "2.1.314"
 
 [settings]
 experimental = false
