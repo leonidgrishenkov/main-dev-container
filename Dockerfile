@@ -40,6 +40,8 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GOTOOLCHAIN=local \
 # against the tool's own go.mod.
 # Earlier revisions force-bumped golang.org/x/* and grpc per tool to keep Trivy green;
 # that was dropped on purpose once the toolchain stopped shipping in the final image.
+# The one exception is the `case` below: a finding the .trivyignore.yaml policy says
+# must be fixed, in a tool whose latest release still pins the vulnerable module.
 # What Trivy still flags inside these binaries is handled in .trivyignore.yaml.
 # DL3062 false positive: hadolint cannot see the @<version> through the loop variable
 # and reports `go install` as unpinned, but every entry in TOOLS IS pinned.
@@ -63,7 +65,27 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     if [ "$(go env GOHOSTARCH)" != "${GOARCH}" ]; then BIN_DIR="${BIN_DIR}/${GOOS}_${GOARCH}"; fi && \
     mkdir -p /out && \
     for spec in "${TOOLS[@]}"; do \
-        go install "${spec#*=}" && mv "${BIN_DIR}/${spec%%=*}" /out/; \
+        name=${spec%%=*} && pkg=${spec#*=} && path=${pkg%@*} && ver=${pkg##*@} && \
+        # Temporary dependency bumps, set as the positional args for `go get`. They are
+        # keyed by the exact release, so a Renovate bump of the tool turns them off.
+        # Delete an entry once the tool releases the bumps itself.
+        case "${name}@${ver}" in \
+            # go-jose CVE-2026-116587 (JWK parsing DoS) and x/net CVE-2026-78669 (HTTP/2
+            # DoS). task's main branch already pins these versions; drop with v3.55.0.
+            task@v3.54.0) set -- github.com/go-jose/go-jose/v4@v4.1.8 golang.org/x/net@v0.62.0 ;; \
+            *) set -- ;; \
+        esac && \
+        if [ "$#" -eq 0 ]; then \
+            go install "${pkg}" && mv "${BIN_DIR}/${name}" /out/; \
+        else \
+            # Build the released module source with only those modules raised. The
+            # module is the package path minus any /cmd/<name>, as in renovate.json5.
+            mod=${path%%/cmd/*} && \
+            src=$(go mod download -json "${mod}@${ver}" | sed -n 's/^[[:space:]]*"Dir": "\(.*\)",$/\1/p') && \
+            cp -r "${src}" "/tmp/${name}" && chmod -R u+w "/tmp/${name}" && \
+            go -C "/tmp/${name}" get "$@" && \
+            go -C "/tmp/${name}" build -o "/out/${name}" ".${path#"${mod}"}"; \
+        fi; \
     done
 
 # Same pinned base as go-builder above.
@@ -103,6 +125,25 @@ RUN --mount=type=cache,id=mise-downloads,target=/root/.local/share/mise,sharing=
     && ln -sf "$(mise where aqua:fish-shell/fish-shell)/fish" /usr/local/bin/fish \
     && echo /usr/local/bin/fish >> /etc/shells \
     && mise cache clear
+
+# npm's bundled undici is used only by node-gyp, to download Node headers for native
+# addons. CVE-2026-109383 is a TLS check bypass, which the .trivyignore.yaml policy says
+# must be fixed, and no Node or npm release bundles a fixed undici yet (npm 12.2.1 still
+# ships 6.29.0). Swap in the fixed 6.x release, which node-gyp's ^6.25.0 accepts, but
+# only while the bundled copy is a vulnerable 6.x. Once Node ships a fixed or newer-major
+# undici this is a no-op, so a Node bump never breaks the build; delete it then.
+RUN NODE_DIR="$(mise where node)" \
+    && PATH="${NODE_DIR}/bin:${PATH}" \
+    && NPM_DIR="${NODE_DIR}/lib/node_modules/npm" \
+    && UNDICI_VERSION=6.29.1 \
+    && if node -e 'const [npm, fixed] = process.argv.slice(1); const semver = require(npm + "/node_modules/semver"); const { version } = require(npm + "/node_modules/undici/package.json"); process.exit(semver.satisfies(version, "6.x <" + fixed) ? 0 : 1)' "${NPM_DIR}" "${UNDICI_VERSION}"; then \
+        npm pack --silent --pack-destination /tmp "undici@${UNDICI_VERSION}" \
+        && rm -rf "${NPM_DIR}/node_modules/undici" \
+        && mkdir "${NPM_DIR}/node_modules/undici" \
+        && tar -xzf "/tmp/undici-${UNDICI_VERSION}.tgz" --no-same-owner --strip-components=1 -C "${NPM_DIR}/node_modules/undici" \
+        && rm -rf "/tmp/undici-${UNDICI_VERSION}.tgz" /root/.npm; \
+    fi \
+    && echo "npm's undici: $(node -p "require('${NPM_DIR}/node_modules/undici/package.json').version")"
 
 # Only the Go binaries cross over from go-builder; the toolchain, its stdlib and its
 # test fixtures never enter this image, so Trivy has nothing of Go's own to scan.

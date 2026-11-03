@@ -88,7 +88,9 @@ The Trivy gate fails on any fixable `HIGH` or `CRITICAL` finding. Findings fall 
 
 - **Fixed, never suppressed:** the base OS packages, `curl`, `git`, `gnupg`, OpenSSL, the Go stdlib, anything in a
   TLS/crypto path, and anything that parses untrusted network input. The fix is to bump the package, the toolchain
-  (`GO_VERSION`) or the tool. If no fix exists, that blocks the release.
+  (`GO_VERSION`) or the tool. When the tool has no release with the fix yet, the vulnerable dependency is patched in the
+  `Dockerfile` until it does (a Go CLI's module in `go-builder`, a package bundled with npm). If no fix exists, that
+  blocks the release.
 - **Suppressed with justification:** dev tools driven interactively by the single trusted user of the container, and
   their vendored dependencies, when the finding is not exploitable here and no upstream release fixes it (or the fix
   belongs to another repo).

@@ -79,6 +79,11 @@ go_absent() {
     [[ ! -e /usr/local/share/mise/installs/go ]] || { echo "mise go install dir present"; return 1; }
 }
 
+# The Dockerfile may swap npm's bundled undici; node-gyp must still be able to load it.
+npm_undici_loads() {
+    node -e 'require(process.argv[1] + "/lib/node_modules/npm/node_modules/undici")' "$(mise where node)"
+}
+
 # 1. Every tool in mise.toml is installed, on PATH via mise and runs.
 TOOLS=()
 while IFS= read -r tool; do TOOLS+=("$tool"); done < <(
@@ -117,6 +122,10 @@ check "fish starts" fish -c true
 
 # 6. The Go toolchain stays out of the final image (multi-stage invariant).
 check "go is absent" go_absent
+
+# 7. npm works, including the undici the Dockerfile may have swapped in.
+check "npm runs" runs npm
+check "npm's bundled undici loads" npm_undici_loads
 
 echo
 if ((${#FAILURES[@]})); then

@@ -19,15 +19,6 @@
 # `expired-at` is silently ignored and the entry would never expire.
 
 vulnerabilities:
-  # --- task v3.54.0 (usr/local/bin/task) -------------------------------------
-  - id: CVE-2026-78669
-    paths: [usr/local/bin/task]
-    statement: >-
-      x/net HTTP/2 CPU exhaustion from a malicious peer. task only speaks HTTP for
-      remote Taskfiles, an opt-in experiment; impact is a slow foreground run.
-      v3.54.0 is the latest release and still pins x/net v0.59.0 (fix: v0.60.0).
-    expired_at: 2027-04-10
-
   # --- npm bundled with Node (mise install) -----------------------------------
   # Node's bundled npm deps are NOT refreshed by every Node minor bump (26.3.1,
   # 26.4.0 and 26.5.0 all shipped the same undici/tar/brace-expansion); only a
@@ -35,14 +26,11 @@ vulnerabilities:
   # place in the Dockerfile with equality-pinned version guards, which broke the
   # build on any Node bump that shipped a newer copy. Now: bump `node` in
   # mise.toml when a release fixes them, and suppress what is left here.
+  # Exception: a finding the policy says must be fixed and no Node release fixes
+  # yet is patched in the Dockerfile behind a guard that turns into a no-op once
+  # Node catches up (currently undici, for a TLS check bypass).
   # npm runs only when the user invokes npm/npx by hand, or at build time on
   # first-party repos (npx github:leonidgrishenkov/agent-skills).
-  - id: CVE-2026-19534
-    paths: [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/undici/package.json]
-    statement: >-
-      undici WebSocket handshake crash. npm reaches undici only through node-gyp
-      for HTTPS header downloads and never opens a WebSocket.
-    expired_at: 2027-04-10
   - id: CVE-2026-102276
     paths: &npm-brace [usr/local/share/mise/installs/node/*/lib/node_modules/npm/node_modules/brace-expansion/package.json]
     statement: &npm-brace-why >-

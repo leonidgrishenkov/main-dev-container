@@ -1,6 +1,7 @@
 [tools]
 # npm ships inside Node, and a Node bump only refreshes npm's bundled deps when
-# that release carries a newer npm. Findings left in them: .trivyignore.yaml.
+# that release carries a newer npm. Findings left in them: .trivyignore.yaml, or
+# patched in the Dockerfile when the policy says they must be fixed (undici).
 node = "26.13.0"
 neovim = "0.12.6"
 # Go-based CLIs (fzf/lazygit/task/direnv/shfmt) are NOT pinned here: their mise
