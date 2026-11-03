@@ -7,7 +7,7 @@ ARG MISE_VERSION=v2026.10.25
 # versions) or the full image. Renovate bumps both FROM lines together.
 # Builder for the Go CLIs. Same digest-pinned base as the final stage, so there is one
 # base image to track. It runs natively ($BUILDPLATFORM) and cross-compiles for
-# $TARGETARCH: the arm64 release build goes through QEMU, and compiling six Go
+# $TARGETARCH: the arm64 release build goes through QEMU, and compiling five Go
 # programs under emulation is extremely slow.
 FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20261027-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS go-builder
 
@@ -29,15 +29,15 @@ RUN curl -fsSL https://mise.run \
     && mise install --yes go@${GO_VERSION}
 
 ARG TARGETARCH
-# All six tools are pure Go, so CGO_ENABLED=0 is safe and makes cross-compiling trivial.
+# All five tools are pure Go, so CGO_ENABLED=0 is safe and makes cross-compiling trivial.
 # GOTOOLCHAIN=local: fail rather than silently download a different Go than GO_VERSION.
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GOTOOLCHAIN=local \
     GOPATH=/root/go GOCACHE=/root/.cache/go-build
 
 # Build the Go-based CLIs with the pinned Go toolchain so their embedded stdlib is
-# current. They are not in mise.toml because the mise prebuilts ship a stale Go stdlib
-# and some (glow) have no newer release at all. Dependencies resolve exactly as
-# each upstream pins them: `go install pkg@ver` builds against the tool's own go.mod.
+# current. They are not in mise.toml because the mise prebuilts ship a stale Go stdlib.
+# Dependencies resolve exactly as each upstream pins them: `go install pkg@ver` builds
+# against the tool's own go.mod.
 # Earlier revisions force-bumped golang.org/x/* and grpc per tool to keep Trivy green;
 # that was dropped on purpose once the toolchain stopped shipping in the final image.
 # What Trivy still flags inside these binaries is handled in .trivyignore.yaml.
@@ -48,14 +48,12 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     --mount=type=cache,id=go-mod,target=/root/go/pkg/mod,sharing=locked \
     PATH="$(mise where go@${GO_VERSION})/bin:${PATH}" && \
     go version && \
-    # glow v2: NOTE the /v2 module path (v1 is a different, older major).
     # Renovate bumps these `name=package@version` entries (see .github/renovate.json5).
     TOOLS=( \
         direnv=github.com/direnv/direnv/v2@v2.38.2 \
         lazygit=github.com/jesseduffield/lazygit@v0.66.2 \
         fzf=github.com/junegunn/fzf@v0.74.5 \
         shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.14.1 \
-        glow=github.com/charmbracelet/glow/v2@v2.1.2 \
         task=github.com/go-task/task/v3/cmd/task@v3.54.0 \
     ) && \
     # go install puts native binaries in bin/ but cross-compiled ones in bin/<os>_<arch>/.
@@ -160,8 +158,7 @@ RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
     && cat /tmp/stow-packages | xargs -I {} stow {} \
     && nvim --headless "+Lazy! restore" +qa \
     && rm -rf /tmp/sfw-* \
-    && pi install git:github.com/leonidgrishenkov/pi-extensions \
-    && npx -y github:leonidgrishenkov/agent-skills install --target pi --target claude \
+    && npx -y github:leonidgrishenkov/agent-skills install --target claude \
     && bat cache --build
 
 # Overwrite Mason's prebuilt shfmt (built with Go 1.26.1, vuln stdlib) with the copy

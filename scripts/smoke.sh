@@ -10,7 +10,7 @@
 set -euo pipefail
 
 MISE_CONFIG=/etc/mise/config.toml
-GO_TOOLS=(direnv lazygit fzf shfmt glow task)
+GO_TOOLS=(direnv lazygit fzf shfmt task)
 # Stowed files that exist in the dotfiles repo. stow folds whole directories into
 # one symlink (e.g. ~/.config/fish -> dotfiles/...), so check where the path
 # resolves to, not whether the file itself is a symlink.
