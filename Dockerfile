@@ -43,7 +43,9 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GOTOOLCHAIN=local \
 # What Trivy still flags inside these binaries is handled in .trivyignore.yaml.
 # DL3062 false positive: hadolint cannot see the @<version> through the loop variable
 # and reports `go install` as unpinned, but every entry in TOOLS IS pinned.
-# hadolint ignore=DL3062
+# SC3054 false positive: hadolint 2.15 drops the bash SHELL after an ARG or ENV and
+# lints the RUN as POSIX sh (hadolint/hadolint#1241, #1257).
+# hadolint ignore=DL3062,SC3054
 RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     --mount=type=cache,id=go-mod,target=/root/go/pkg/mod,sharing=locked \
     PATH="$(mise where go@${GO_VERSION})/bin:${PATH}" && \
@@ -67,7 +69,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
 # Same pinned base as go-builder above.
 FROM docker.io/debian:trixie-20261027-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 
-USER root
+USER 0
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
@@ -108,6 +110,8 @@ COPY --from=go-builder /out/ /usr/local/bin/
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
+# DL3064 false positive: the login name of the container user, not a secret.
+# hadolint ignore=DL3064
 ARG USERNAME=devel
 
 RUN groupadd -g ${GROUP_ID} ${USERNAME} \
@@ -143,6 +147,8 @@ COPY ./stow-packages /tmp/stow-packages
 # The dotfiles enable Mason's Socket Firewall, so Mason runs npm installs through sfw,
 # which writes a temporary CA private key to /tmp/sfw-*. `+qa` kills installs still in
 # flight, so sfw never cleans up; delete it in this same layer or the key ships.
+# SC3015: the same hadolint 2.15 SHELL false positive as SC3054 in go-builder.
+# hadolint ignore=SC3015
 RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
         git init -q "${DOTFILES_DIR}" \
         && git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO_URL}" \
