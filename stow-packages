@@ -6,7 +6,6 @@ editorconfig
 fish
 fsh
 ghostty
-glow
 markdownlint-cli2
 nvim
 prettier
@@ -17,7 +16,6 @@ starship
 yamlfmt
 yazi
 zsh
-pi
 tealdeer
 direnv
 lazygit

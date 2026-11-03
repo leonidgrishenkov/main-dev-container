@@ -8,7 +8,7 @@ A Docker development container image with pre-installed tools and utilities, fea
 
 The `Dockerfile` has two stages on the same digest-pinned Debian base:
 
-- **`go-builder`** cross-compiles the Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `glow`, `task`) with a pinned Go
+- **`go-builder`** cross-compiles the Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `task`) with a pinned Go
   toolchain. It runs on the build host's native platform and targets `$TARGETARCH`, so the arm64 release does not
   compile Go under QEMU.
 - **The final stage** installs the tools from `mise.toml`, copies in only the Go binaries, and stows the dotfiles.
@@ -88,10 +88,12 @@ The Trivy gate fails on any fixable `HIGH` or `CRITICAL` finding. Findings fall 
 
 - **Fixed, never suppressed:** the base OS packages, `curl`, `git`, `gnupg`, OpenSSL, the Go stdlib, anything in a
   TLS/crypto path, and anything that parses untrusted network input. The fix is to bump the package, the toolchain
-  (`GO_VERSION`) or the tool. If no fix exists, that blocks the release.
+  (`GO_VERSION`) or the tool. When the tool has no release with the fix yet, the vulnerable dependency is patched in the
+  `Dockerfile` until it does (a Go CLI's module in `go-builder`, a package bundled with npm). If no fix exists, that
+  blocks the release.
 - **Suppressed with justification:** dev tools driven interactively by the single trusted user of the container, and
   their vendored dependencies, when the finding is not exploitable here and no upstream release fixes it (or the fix
-  belongs to another repo, e.g. `pi-extensions`).
+  belongs to another repo).
 
 Every suppression in `.trivyignore.yaml` is scoped with `paths` (so the same CVE in an OS package or another tool still
 fails the gate), carries a `statement` saying why it is not exploitable here, and has an `expired_at` date about six
@@ -113,7 +115,7 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 | Debian base image: newer dated `trixie-*-slim` tag and its digest | both `FROM` lines in `Dockerfile`               | own      |
 | GitHub Actions and runner images                                  | `.github/workflows/*.yml`                       | grouped  |
 | Tools in `mise.toml`                                              | `mise.toml`                                     | grouped  |
-| Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `glow`, `task`)     | `TOOLS` in the `go-builder` stage               | grouped  |
+| Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `task`)             | `TOOLS` in the `go-builder` stage               | grouped  |
 | `MISE_VERSION`, `GO_VERSION`                                      | `Dockerfile` ARGs under a `# renovate:` comment | one each |
 
 - Major updates get a PR of their own. A Go CLI major is only listed on the dashboard for approval: it also changes the
