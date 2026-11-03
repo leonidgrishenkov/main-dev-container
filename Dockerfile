@@ -1,6 +1,6 @@
 # Pre-FROM ARGs are shared by every stage that re-declares them (bare `ARG NAME`).
 # renovate: datasource=github-releases depName=jdx/mise
-ARG MISE_VERSION=v2026.7.3
+ARG MISE_VERSION=v2026.10.25
 
 # The base image is pinned by tag and digest. The tag tells Renovate what to follow: newer
 # dated trixie-*-slim tags, never another Debian release (./apt-packages pins trixie
@@ -9,14 +9,14 @@ ARG MISE_VERSION=v2026.7.3
 # base image to track. It runs natively ($BUILDPLATFORM) and cross-compiles for
 # $TARGETARCH: the arm64 release build goes through QEMU, and compiling six Go
 # programs under emulation is extremely slow.
-FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20260713-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS go-builder
+FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20261027-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS go-builder
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 ARG MISE_VERSION
 # Single source of truth for the Go toolchain; it is deliberately not in mise.toml.
 # renovate: datasource=golang-version depName=go
-ARG GO_VERSION=1.26.9
+ARG GO_VERSION=1.27.3
 
 # ca-certificates for TLS to the module proxy, curl for the mise installer, git for
 # the GOPROXY "direct" fallback. Same version pins as ./apt-packages.
@@ -52,9 +52,9 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     # Renovate bumps these `name=package@version` entries (see .github/renovate.json5).
     TOOLS=( \
         direnv=github.com/direnv/direnv/v2@v2.38.2 \
-        lazygit=github.com/jesseduffield/lazygit@v0.65.1 \
-        fzf=github.com/junegunn/fzf@v0.74.0 \
-        shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.13.1 \
+        lazygit=github.com/jesseduffield/lazygit@v0.66.2 \
+        fzf=github.com/junegunn/fzf@v0.74.5 \
+        shfmt=mvdan.cc/sh/v3/cmd/shfmt@v3.14.1 \
         glow=github.com/charmbracelet/glow/v2@v2.1.2 \
         task=github.com/go-task/task/v3/cmd/task@v3.54.0 \
     ) && \
@@ -67,7 +67,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     done
 
 # Same pinned base as go-builder above.
-FROM docker.io/debian:trixie-20260713-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
+FROM docker.io/debian:trixie-20261027-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 
 USER root
 
