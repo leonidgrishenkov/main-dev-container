@@ -79,8 +79,9 @@ Dependency update PRs come from Renovate, not from a workflow here (see [Depende
 - **Tag Origin Verification** — the release workflow verifies that the pushed tag points to a commit that is an ancestor
   of `main`, preventing releases from arbitrary branches.
 - **Image Signing** — every release image is signed with **cosign** using keyless OIDC via GitHub Actions.
-- **Immutable Release Tags** — published `devcr` tags can't be overwritten. A failed release can't be re-run as is
-  (delete its tags first), and a second version tag on an already released commit fails on the commit-SHA tag.
+- **Immutable Release Tags** — published `devcr` tags can't be overwritten. A release pushes only the version tag and
+  the commit-SHA tag; there is no moving `latest`, so pull a version. A failed release can't be re-run as is (delete
+  its tags first), and a second version tag on an already released commit fails on the commit-SHA tag.
 
 ### Vulnerability Policy
 
