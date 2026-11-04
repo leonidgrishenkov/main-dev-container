@@ -57,5 +57,13 @@
       ],
       datasourceTemplate: 'go',
     },
+    {
+      customType: 'regex',
+      description: 'Composite action inputs annotated with a `# renovate:` comment (the Trivy release in install-trivy).',
+      managerFilePatterns: ['/(^|/)\\.github/actions/[^/]+/action\\.ya?ml$/'],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+default: (?<currentValue>\\S+)',
+      ],
+    },
   ],
 }
