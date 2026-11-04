@@ -124,6 +124,11 @@ jobs:
           # a release (e.g. push tags: ['*.*']).
           tags: |
             type=ref,event=tag
+          # No `latest`: metadata-action adds it to every tag event by default
+          # (latest=auto), but devcr has immutable tags, so a moving tag can never
+          # be pushed again once it exists.
+          flavor: |
+            latest=false
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
