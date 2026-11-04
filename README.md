@@ -118,6 +118,7 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 | Tools in `mise.toml`                                              | `mise.toml`                                     | grouped  |
 | Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `task`)             | `TOOLS` in the `go-builder` stage               | grouped  |
 | `MISE_VERSION`, `GO_VERSION`                                      | `Dockerfile` ARGs under a `# renovate:` comment | one each |
+| Trivy used by the CI scans                                        | `.github/actions/install-trivy/action.yml`      | own      |
 
 - Major updates get a PR of their own. A Go CLI major is only listed on the dashboard for approval: it also changes the
   module path (`/v2` → `/v3`), which has to be edited by hand.

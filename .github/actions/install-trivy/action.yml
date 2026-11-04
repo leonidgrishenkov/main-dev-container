@@ -1,0 +1,55 @@
+---
+# trivy-action's own install (setup-trivy) downloads the binary from get.trivy.dev,
+# which stopped resolving on 2026-11-03 (aquasecurity/setup-trivy#42); only its
+# checksum came from GitHub. This installs Trivy from the GitHub release alone and
+# verifies it before use: the checksums file must carry a cosign signature from
+# Trivy's release workflow for exactly this tag, and the tarball must match it.
+# Callers then run trivy-action with `skip-setup-trivy: true`.
+name: install-trivy
+description: Install a Trivy release from GitHub, verified with cosign and SHA-256.
+
+inputs:
+  version:
+    description: Trivy release tag.
+    # renovate: datasource=github-releases depName=aquasecurity/trivy
+    default: v0.70.0
+
+runs:
+  using: composite
+  steps:
+    - name: install-cosign
+      uses: sigstore/cosign-installer@v4.1.2
+
+    - name: download-verify-install-trivy
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        case "${RUNNER_ARCH}" in
+          X64) ARCH=64bit ;;
+          ARM64) ARCH=ARM64 ;;
+          *) echo "::error::No Trivy build for runner arch ${RUNNER_ARCH}."; exit 1 ;;
+        esac
+        BASE="https://github.com/aquasecurity/trivy/releases/download/${VERSION}"
+        TARBALL="trivy_${VERSION#v}_Linux-${ARCH}.tar.gz"
+        SUMS="trivy_${VERSION#v}_checksums.txt"
+        DIR="${RUNNER_TEMP}/trivy"
+        mkdir -p "${DIR}/bin"
+        cd "${DIR}" || exit 1
+        for f in "${TARBALL}" "${SUMS}" "${SUMS}.sigstore.json"; do
+          curl -fsSL --proto '=https' --retry 3 -o "${f}" "${BASE}/${f}"
+        done
+
+        # Fails unless the signing certificate was issued to Trivy's release workflow
+        # running for this exact tag.
+        cosign verify-blob "${SUMS}" \
+          --bundle "${SUMS}.sigstore.json" \
+          --certificate-identity "https://github.com/aquasecurity/trivy/.github/workflows/reusable-release.yaml@refs/tags/${VERSION}" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+        # Check the tarball's own line only; an empty match fails the check too.
+        awk -v f="${TARBALL}" '$2 == f' "${SUMS}" | sha256sum --check --strict -
+
+        tar -xzf "${TARBALL}" -C bin trivy
+        echo "${DIR}/bin" >> "${GITHUB_PATH}"
+        bin/trivy --version

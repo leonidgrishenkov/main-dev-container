@@ -82,6 +82,10 @@ jobs:
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
+      # Verified install from the GitHub release; see the action for why.
+      - name: install-trivy
+        uses: ./.github/actions/install-trivy
+
       # Suppressions live in .trivyignore.yaml: path-scoped, justified, expiring.
       # Trivy only reads .trivyignore by default, so the YAML file must be passed.
       # limit-severities-for-sarif: with format sarif, trivy-action otherwise drops
@@ -89,6 +93,7 @@ jobs:
       - name: scan-image-trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          skip-setup-trivy: true
           image-ref: ${{ env.FULL_IMAGE }}:${{ github.sha }}
           severity: HIGH,CRITICAL
           limit-severities-for-sarif: true

@@ -29,9 +29,14 @@ jobs:
       - name: checkout
         uses: actions/checkout@v7
 
+      # Verified install from the GitHub release; see the action for why.
+      - name: install-trivy
+        uses: ./.github/actions/install-trivy
+
       - name: run-trivy-scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          skip-setup-trivy: true
           scan-type: config
           severity: HIGH,CRITICAL
           exit-code: "1"
