@@ -23,6 +23,9 @@ jobs:
   # commit on any branch — so we assert the tagged commit is an ancestor of
   # origin/main and fail the release otherwise. This blocks the build/push for
   # off-main tags (the tag ref itself still exists in Git; nothing is released).
+  # It catches mistakes, not attacks: a tag runs the release.yml of the commit it
+  # points to, which may not have this gate. What stops an unapproved release is
+  # the release environment of the push job.
   tag-ref-gate:
     name: tag-ref-gate
     runs-on: ubuntu-26.04
@@ -49,6 +52,10 @@ jobs:
     name: build-and-push
     needs: tag-ref-gate
     runs-on: ubuntu-26.04
+    # Waits for a required reviewer and deploys only tags matching *.*. The OIDC
+    # subject becomes repo:<owner>/<repo>:environment:release, the only subject
+    # the AWS release role trusts.
+    environment: release
     permissions:
       contents: read
       id-token: write          # OIDC for the AWS role and cosign keyless signing
@@ -76,9 +83,10 @@ jobs:
           FULL="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "FULL_IMAGE=${FULL}"
+            # Only releases write this cache; pull requests write their own (see pr.yml).
             echo "CACHE_IMAGE=${REGISTRY}/buildcache/${IMAGE_NAME}:latest"
-            # Same weekly apt refresh as pr.yml: a release in the week of its PR reuses
-            # the scanned apt layer; a later one rebuilds it with current fixes.
+            # Same weekly apt refresh as pr.yml: the apt layer (and everything after it)
+            # is rebuilt with current Debian fixes at least once a week.
             echo "APT_REFRESH=$(date -u +%G-W%V)"
           } >> "$GITHUB_ENV"
 
@@ -135,8 +143,8 @@ jobs:
             io.github.leonidgrishenkov.devcr.dotfiles.source=${{ steps.dotfiles.outputs.url }}
             io.github.leonidgrishenkov.devcr.dotfiles.revision=${{ steps.dotfiles.outputs.sha }}
 
-      # Build multi-arch from registry cache (written by PR scan), then push with
-      # SBOM + SLSA provenance attestations attached.
+      # Build multi-arch from the release cache (written only by releases), then push
+      # with SBOM + SLSA provenance attestations attached.
       - name: build-and-push
         id: push
         uses: docker/build-push-action@v7
