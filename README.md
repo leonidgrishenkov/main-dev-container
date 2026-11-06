@@ -49,22 +49,22 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 ### Workflow Triggers
 
-| Trigger                          | Workflow           | What runs                                                                                                                                                   | Purpose                          |
-| -------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                        | Fast feedback during development |
-| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`                                                        | Gate — must pass before merge    |
-| Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to private ECR, SBOM + SLSA provenance, cosign sign | Release                          |
+| Trigger                          | Workflow           | What runs                                                                                                                                                                                              | Purpose                          |
+| -------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                                                                   | Fast feedback during development |
+| PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`                                                                                                   | Gate — must pass before merge    |
+| Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, wait for approval (`release` environment), pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to private ECR, SBOM + SLSA provenance, cosign sign | Release                          |
 
 Dependency update PRs come from Renovate, not from a workflow here (see [Dependency Updates](#dependency-updates)).
 
 ### Design Goals
 
 - **No heavy jobs on dev branches.** Only lint runs while developers iterate.
-- **No duplicate scanning on release.** The image is already scanned during the PR gate. The tag workflow goes straight
-  to multi-arch build and push.
+- **No duplicate scanning on release.** The PR gate scans an amd64 build of each change; the tag workflow goes straight
+  to multi-arch build and push. The published image is a separate build and isn't scanned before the push.
 - **No external reusable workflows.** All logic is inlined in this repo for full control.
-- **Cross-run cache sharing.** PR and release builds share a **registry cache** in ECR (`buildcache/devcr`) so layers
-  are reused across workflows.
+- **One-way cache sharing.** PR builds reuse the release build cache but write their own, so pull request code can't
+  plant layers in a release (see [Cache Strategy](#cache-strategy)).
 
 
 ### Security Checks
@@ -77,7 +77,11 @@ Dependency update PRs come from Renovate, not from a workflow here (see [Depende
 - **Smoke Test** — `scripts/smoke.sh` asserts that every `mise.toml` tool and Go CLI runs, the dotfiles are stowed,
   nvim plugins are restored and start cleanly, the user and shell are right, and the Go toolchain is absent.
 - **Tag Origin Verification** — the release workflow verifies that the pushed tag points to a commit that is an ancestor
-  of `main`, preventing releases from arbitrary branches.
+  of `main`. This catches mistakes, not attacks: a tag runs the `release.yml` of the commit it points to, which may not
+  have the check.
+- **Release Approval** — the release job runs in the `release` environment, which deploys only tags matching `*.*` and
+  waits for a required reviewer; `gha-devcr-release` trusts only this environment. Approve a run only for a tag you just
+  pushed yourself: a tag on any other commit asks for the same approval.
 - **Image Signing** — every release image is signed with **cosign** using keyless OIDC via GitHub Actions.
 - **Immutable Release Tags** — published `devcr` tags can't be overwritten. A release pushes only the version tag and
   the commit-SHA tag; there is no moving `latest`, so pull a version. A failed release can't be re-run as is (delete
@@ -130,34 +134,37 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 
 ### Secrets & Variables
 
-| Name                   | Type   | Source                         | Purpose                                                                               |
-| ---------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------- |
-| `AWS_PR_ROLE_ARN`      | secret | `secrets.AWS_PR_ROLE_ARN`      | IAM role for `pr.yml` (GitHub OIDC): read/write on the build cache repository only    |
-| `AWS_RELEASE_ROLE_ARN` | secret | `secrets.AWS_RELEASE_ROLE_ARN` | IAM role for `release.yml` (GitHub OIDC): push to `devcr`, read/write the build cache |
-| `GITHUB_TOKEN`         | secret | auto-provided                  | Authenticated GitHub API requests for `mise` package downloads                        |
+| Name                   | Type   | Source                         | Purpose                                                                                                        |
+| ---------------------- | ------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `AWS_PR_ROLE_ARN`      | secret | `secrets.AWS_PR_ROLE_ARN`      | IAM role for `pr.yml` (GitHub OIDC): read the release cache, read/write the PR cache                           |
+| `AWS_RELEASE_ROLE_ARN` | secret | `secrets.AWS_RELEASE_ROLE_ARN` | IAM role for `release.yml` (GitHub OIDC, `release` environment): push to `devcr`, read/write the release cache |
+| `GITHUB_TOKEN`         | secret | auto-provided                  | Authenticated GitHub API requests for `mise` package downloads                                                 |
 
 The ECR repositories and the roles live in the infra repository (`cloud/aws/live/us-east-1/container/ecr/devcr`,
-`container/ecr/buildcache/devcr` and `iam/ecr/devcr`); the secrets are that unit's `pr_role_arn` and `release_role_arn`
-outputs. `gha-devcr-pr` trusts pull requests of this repository and can only touch the cache repository, so pull request
-code can't change published images; `gha-devcr-release` trusts version tags. The role ARNs are secrets rather than
+`container/ecr/buildcache/devcr`, `container/ecr/buildcache/devcr-pr` and `iam/ecr/devcr`); the secrets are that unit's
+`pr_role_arn` and `release_role_arn` outputs. `gha-devcr-pr` trusts pull requests of this repository; it reads the
+release cache and writes only the PR cache, so pull request code can't change published images or what a release builds
+from. `gha-devcr-release` trusts only jobs in the `release` environment. The role ARNs are secrets rather than
 variables, and the workflows mask the account ID, so neither shows up in this public repository's logs.
 
 ### Cache Strategy
 
-PR and release builds share a **registry cache** stored in its own private ECR repository, `buildcache/devcr` (tag
-`latest`). The image repository `devcr` has immutable tags, so the moving cache tag can't live there. The cache
-repository's lifecycle policy expires the untagged cache manifests that each build leaves behind after 7 days.
+Builds reuse layers through **registry caches**, each in a private ECR repository of its own (tag `latest`). The image
+repository `devcr` has immutable tags, so the moving cache tags can't live there. Each cache repository's lifecycle
+policy expires the untagged cache manifests that every build leaves behind after 7 days.
 
-- **PR build** (`pr.yml`) writes cache after scanning.
-- **Release build** (`release.yml`) reads the same cache before building multi-arch, significantly reducing
-  redundant layer builds.
+- **Release build** (`release.yml`) reads and writes `buildcache/devcr`, the release cache.
+- **PR build** (`pr.yml`) reads the release cache and `buildcache/devcr-pr`, and writes only `buildcache/devcr-pr`.
 
-This avoids the limitations of GHA cache (`type=gha`), where PR caches are isolated to the merge ref and invisible to
-release workflows.
+Trust flows one way because BuildKit reuses a cached layer without checking how it was built: whoever can write a cache
+can plant a layer that a later build ships as is. Pull requests run unmerged code, so they write a cache that no release
+reads, the same isolation GHA cache (`type=gha`) gives pull requests; a poisoned PR cache can only skew other PR builds.
+The cost is that a release doesn't reuse what its PR built: it reuses the layers of the previous release and rebuilds
+the rest.
 
 Cached layers never pick up Debian security updates on their own, because nothing in the apt layer's cache key changes
 when Debian ships them. Both workflows therefore pass the ISO week as `APT_REFRESH`, which rebuilds the apt layer and
-everything after it once a week; within a week, a release reuses the layers its PR scanned.
+everything after it at least once a week.
 
-The release build passes the resolved dotfiles commit as `DOTFILES_REF`, so its dotfiles layer is rebuilt for that
-exact commit rather than reused from whatever `main` was when the PR cache was written.
+The release build passes the resolved dotfiles commit as `DOTFILES_REF`, so a cached dotfiles layer is reused only if it
+was built from that exact commit.
