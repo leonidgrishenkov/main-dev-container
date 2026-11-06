@@ -168,3 +168,19 @@ everything after it at least once a week.
 
 The release build passes the resolved dotfiles commit as `DOTFILES_REF`, so a cached dotfiles layer is reused only if it
 was built from that exact commit.
+
+## TODO
+
+- [ ] **Scan the release image before it gets tags.** The PR gate scans an amd64 build of the change, but the published
+  multi-arch image is a separate build that nothing scans before the push. Push it by digest only (`push-by-digest`),
+  run Trivy against `devcr@<digest>` for each platform, and only then add the version and commit-SHA tags and sign it.
+  An image that fails the scan stays untagged, and the repository's lifecycle policy expires it after 7 days.
+- [ ] **Pin GitHub Actions to commit SHAs.** The workflows reference actions by tag (`docker/build-push-action@v7`), so
+  whoever moves a tag runs their code with the job's credentials: in `release.yml`, the release role and the OIDC token
+  that cosign signs with. Pin full SHAs with the version in a comment, starting with `release.yml`, and let Renovate
+  keep them current (`helpers:pinGitHubActionDigests`).
+- [ ] **Rebuild the apt layer when Debian ships fixes, not only weekly.** `APT_REFRESH` is the ISO week, so a security
+  fix released mid-week stays behind the cached apt layer until Monday, and the Trivy gate fails every PR until then
+  unless the caches are deleted by hand (as with CVE-2026-109518 in apt). Add a hash of the `Packages` entries in
+  `trixie-security`'s `InRelease` to `APT_REFRESH` next to the week, so the first build after a security update
+  rebuilds the layer.
