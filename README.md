@@ -42,6 +42,123 @@ trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
 docker run --rm -v "$PWD/scripts/smoke.sh:/opt/smoke.sh:ro" devcr:local bash /opt/smoke.sh
 ```
 
+## Development With Agents
+
+In this setup an agent never holds keys: the keys stay in 1Password and on a YubiKey, not in files. The boundary that
+matters is the project folder an agent shares with you. Through it, above all through `.git`, an agent can get its code
+run wherever the keys are: in a dev container with an SSH agent socket, or on the Mac when commits are signed and pushed
+there. No container escape is needed:
+
+```mermaid
+flowchart LR
+    agent["Agent container"] -- "writes code, .git, mise.toml" --> shared[("~/code/project<br/>mounted into both")]
+    shared -- "git status, push, hooks" --> dev["Dev container<br/>SSH agent socket"]
+    shared -- "prompt, lazygit, signing" --> host["Host<br/>signs and pushes"]
+```
+
+Of the two, signing and pushing on the host from the same folder is the worse one. The rule that follows: keys live only
+where agent code doesn't run, and nothing that runs agent code can write to a `.git` that a trusted environment uses.
+
+### Recommended Layout
+
+```mermaid
+flowchart LR
+    subgraph sandbox["Untrusted: runs agent code, holds no keys"]
+        agent["Agent container<br/>OrbStack or sbx"]
+        dev["Dev container<br/>no SSH socket"]
+        box[("~/sandbox/project")]
+        agent --- box
+        dev --- box
+    end
+    subgraph host["Host: holds the keys"]
+        clone[("~/Code/project<br/>clean clone, never mounted")]
+    end
+    github["GitHub<br/>PR and squash merge"]
+    box -- "git fetch box" --> clone
+    clone -- "git push, YubiKey touch" --> github
+```
+
+1. **Untrusted zone.** The agent and the dev container work together in `~/sandbox/project`, and neither has keys. The
+   agent can stay in OrbStack or move to a microVM sandbox such as
+   [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) (`sbx`, set up in
+   [docker-sandbox-claude](https://github.com/leonidgrishenkov/docker-sandbox-claude)). Even its direct mode, which
+   mounts the folder read-write, fits, because the folder is in the untrusted zone. Don't open that folder on the host:
+   a prompt that shows git status already runs `core.fsmonitor`.
+2. **Transfer.** Fetch into a clean clone on the host: `git -C ~/Code/project fetch box`, where the remote `box` points
+   at `~/sandbox/project`. A current git runs neither the hooks nor the config of the repository it fetches from. Never
+   the other way round: `git push box` from the host runs the receiving repository's hooks on the host. The containers
+   get a fresh `main` on their own, from GitHub or from a read-only mount of the clean clone.
+3. **Review before the push, not before the merge.** Read `git log -p main..box/feat-x` without a checkout, above all
+   changes under `.github/`. `pull_request` runs the workflows from the pull request itself, so a changed workflow runs
+   with its AWS role as soon as the pull request is opened.
+4. **Push without a checkout:** `git push origin box/feat-x:refs/heads/feat-x`. The agent's files never land in the
+   host's working copy.
+5. **Skip signing.** Squash and rebase merges on GitHub create new commits, so branch signatures never reach `main`,
+   and GitHub signs the squash commits itself. No container needs a signing key. If you do want signed branch commits
+   for a merge commit, sign in the clean clone on the host with `git rebase -f -S main` through `op-ssh-sign`, where
+   1Password shows the real process. That is a checkout, so review changes to `mise.toml`, `.envrc`, `.claude/` and
+   `Taskfile` first.
+
+### What Not to Do
+
+- Don't mount one project folder, `.git` included, into an agent's container and into a place that holds keys: a dev
+  container with the SSH agent socket, or the host.
+- Don't sign or push on the host from the folder an agent writes to.
+- Don't forward the SSH agent into a container that runs agent code or code an agent wrote, tests and `npm i` included.
+- Don't open the agent's folder on the host with a git-aware prompt, lazygit or an IDE.
+- Don't `git push` from the host into the agent's repository.
+- Don't give any container `docker.sock` or `--privileged`.
+- Don't give an agent a GitHub token with the Workflows permission.
+
+### What Runs Code From a Shared Folder
+
+An agent writes not only code but also files that run later without you:
+
+- **`.git/config`:**
+  - `core.fsmonitor` runs on every `git status`, and the starship or fish prompt runs `git status` on `cd`, as do
+    lazygit and IDEs.
+  - `core.sshCommand` runs on push and sees the SSH agent.
+  - `gpg.ssh.program` replaces the signing program. It fires exactly when you expect a 1Password prompt and approve it
+    without looking.
+  - Also `core.pager`, `core.hooksPath` and `include.path`.
+- **`.git/hooks/*`**, which neither `git status` nor `git diff` shows.
+- **Project files that tools run on their own:**
+  - `mise.toml` with `[env] _.source`. mise trusts a file's path, not its content, so an edit to an already trusted
+    file goes through without a prompt.
+  - `Taskfile`, `package.json` scripts and `.envrc`.
+  - `compose.dev.yaml`: the next `docker compose up` starts whatever was added (`privileged`, a mount of `~`).
+  - `.claude/settings.json` (hooks) and `.mcp.json`, when Claude Code runs on the host in that folder.
+
+`safe.directory` doesn't help: OrbStack shows files created in a container as owned by you.
+
+### The SSH Agent Socket
+
+- The socket doesn't hand out the key, but whatever reaches it can use the key: sign a Verified commit in your name in
+  any repository, or log in to a server.
+- You edit in the dev container because it has the libraries, so the agent's code runs next to the socket: tests,
+  `npm i`, `task`. Even without that, language servers and formatters in nvim run project config: `eslint.config.js`,
+  `prettier.config.js` and `build.rs` are code. A dev container that shares the agent's folder deserves no more trust
+  than the agent's own.
+- Run `ssh-add -l` inside a container to see which keys it really gets. The 1Password SSH agent offers every key from
+  the vaults its `agent.toml` allows. If server keys are among them, this is not only about GitHub: SSH access to a
+  Docker host, such as a docker context over SSH, is effectively root on it.
+- With the 1Password agent forwarded, the approval prompt most likely names OrbStack, not the process in the container.
+  Approve once, and everything that sees the socket can use the key until 1Password locks. The system `ssh-agent` asks
+  nothing at all.
+- A push from the host with a hardware key (a YubiKey `ed25519-sk` key with `IdentityAgent none`) needs a touch every
+  time; a push from a container goes through an agent key without one.
+
+### OrbStack Specifics
+
+- All containers run in one VM and share its kernel. An agent that escapes its container lands next to the dev
+  container and its socket. A microVM sandbox (`sbx`) gives the agent a kernel of its own.
+- `docker.sock` or `--privileged` in any container gives access to every file on the Mac, since OrbStack can mount any
+  path. A line added to `~/.config/fish/config.fish` or a file dropped into `~/Library/LaunchAgents` then runs on the
+  host.
+- Containers reach services listening on the Mac's localhost through `host.docker.internal`.
+- `devel` has passwordless `sudo` (`NOPASSWD`), so an agent can lift any restriction set up inside the container
+  (iptables, managed settings). Restrict the network from outside, as `sbx` does.
+
 ## CI/CD Workflow
 
 This project uses a **branch-gated CI/CD pipeline** that avoids running heavy jobs where they are not needed. All
