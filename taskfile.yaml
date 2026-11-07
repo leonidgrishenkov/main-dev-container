@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  # NOTE: This will be usefull when working within CMUX since it can connect into the container via SSH.
+  ssh-gen:
+    desc: Generate ssh key and add to the container
+    vars:
+      SSH_KEY_PATH: ~/.ssh/keys/containers/devcr
+    preconditions:
+      - sh: test -n "$(docker ps --quiet --filter 'name=^devcr$' --filter status=running)"
+        msg: Container devcr is not running
+    cmds:
+      - mkdir -p {{ dir .SSH_KEY_PATH }}
+      - rm -f {{ .SSH_KEY_PATH }} {{ .SSH_KEY_PATH }}.pub
+      - ssh-keygen -t ed25519 -N '' -f {{ .SSH_KEY_PATH }}
+      - docker exec -i devcr sh -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys' < {{ .SSH_KEY_PATH }}.pub
+      - docker exec -u root devcr sh -c 'apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd && /usr/sbin/sshd'
+
+  run:
+    desc: Run the container
+    vars:
+      IMAGE: 424957011577.dkr.ecr.us-east-1.amazonaws.com/devcr:1.8.3
+    cmd: |
+      docker run -d --name devcr \
+          -v ~/Shared:/home/devel/shared \
+          -v ~/Code:/home/devel/code \
+          -v claude-sessions:/home/devel/.claude/projects \
+          {{.IMAGE}} \
+          tail -f /dev/null
