@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the devcr image. Asserts the things that actually break: tools
 # missing from mise, broken Go binaries, unstowed dotfiles, unrestored nvim
-# plugins, the wrong user/shell, and the Go toolchain creeping back in.
+# plugins, the wrong user/shell, the Go toolchain creeping back in, and missing
+# agent skills.
 #
 # Runs inside the image; mount it rather than baking it in:
 #   docker run --rm -v "$PWD/scripts/smoke.sh:/opt/smoke.sh:ro" devcr:local bash /opt/smoke.sh
@@ -79,6 +80,16 @@ go_absent() {
     [[ ! -e /usr/local/share/mise/installs/go ]] || { echo "mise go install dir present"; return 1; }
 }
 
+# The skills CLI copies skills to ~/.agents/skills and symlinks them into ~/.claude/skills;
+# -f follows the symlink, so a dangling one fails.
+claude_skills_installed() {
+    local dir=$HOME/.claude/skills skill
+    [[ -n $(ls -A "$dir" 2>/dev/null) ]] || { echo "$dir is missing or empty"; return 1; }
+    for skill in "$dir"/*; do
+        [[ -f $skill/SKILL.md ]] || { echo "$skill has no SKILL.md"; return 1; }
+    done
+}
+
 # The Dockerfile may swap npm's bundled undici; node-gyp must still be able to load it.
 npm_undici_loads() {
     node -e 'require(process.argv[1] + "/lib/node_modules/npm/node_modules/undici")' "$(mise where node)"
@@ -126,6 +137,9 @@ check "go is absent" go_absent
 # 7. npm works, including the undici the Dockerfile may have swapped in.
 check "npm runs" runs npm
 check "npm's bundled undici loads" npm_undici_loads
+
+# 8. Skills from agent-skills are installed for Claude Code.
+check "\$HOME/.claude/skills holds installed skills" claude_skills_installed
 
 echo
 if ((${#FAILURES[@]})); then
