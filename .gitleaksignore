@@ -1,0 +1,6 @@
+# Findings in git history that existed when the gitleaks job was added.
+# Each line is a fingerprint (commit:file:rule:line), not the secret.
+# New findings fail CI; add a fingerprint here only after handling the leak.
+
+# Test value committed to check the secret scan, reverted in bd41875.
+4b3e56e083218673021da532998294ffae1414e9:.env:generic-api-key:1

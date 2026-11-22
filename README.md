@@ -2,7 +2,7 @@
 
 ## About
 
-A Docker development container image with pre-installed tools and utilities, featuring automated CI/CD pipelines, security scanning (Trivy, GitGuardian), multi-architecture builds, and image signing.
+A Docker development container image with pre-installed tools and utilities, featuring automated CI/CD pipelines, security scanning (Trivy, Gitleaks), multi-architecture builds, and image signing.
 
 ## Image Layout
 
@@ -168,7 +168,7 @@ workflows are self-contained in this repository under `.github/workflows/`.
 
 | Trigger                          | Workflow           | What runs                                                                                                                                                                                              | Purpose                          |
 | -------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
-| Push to any branch except `main` | `feature.yml`      | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, GitGuardian secret scan                                                                                                                   | Fast feedback during development |
+| Push to any branch except `main` | `checks.yml`       | `hadolint` Dockerfile lint, Trivy config scan, `actionlint`, Gitleaks secret scan                                                                                                                      | Fast feedback during development |
 | PR into `main`                   | `pr.yml`           | Build amd64 image, Trivy scan (HIGH/CRITICAL, `.trivyignore.yaml`), SARIF upload, `scripts/smoke.sh`                                                                                                   | Gate — must pass before merge    |
 | Push tag `*.*`                   | `release.yml`      | Verify tag is on `main`, wait for approval (`release` environment), pin the dotfiles commit, build multi-arch (`linux/amd64`, `linux/arm64`), push to private ECR, SBOM + SLSA provenance, cosign sign | Release                          |
 
@@ -186,8 +186,8 @@ Dependency update PRs come from Renovate, not from a workflow here (see [Depende
 
 ### Security Checks
 
-- **GitGuardian Scan** (part of `feature.yml`) — runs on every push to any branch except `main` to detect leaked
-  secrets.
+- **Gitleaks Scan** (part of `checks.yml`) — runs on every push to any branch except `main` and scans the whole git
+  history for leaked secrets. Findings that predate the job are listed by fingerprint in `.gitleaksignore`.
 - **Trivy Image Scan** — runs during PR gate with severity `HIGH,CRITICAL` and `ignore-unfixed: true`, using the
   suppressions in `.trivyignore.yaml` (see [Vulnerability Policy](#vulnerability-policy)). Findings are uploaded to
   GitHub Code Scanning alerts.
@@ -240,6 +240,7 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 | Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `task`)             | `TOOLS` in the `go-builder` stage               | grouped  |
 | `MISE_VERSION`, `GO_VERSION`                                      | `Dockerfile` ARGs under a `# renovate:` comment | one each |
 | Trivy used by the CI scans                                        | `.github/actions/install-trivy/action.yml`      | own      |
+| Gitleaks used by `checks.yml` (CI only, not shipped in the image) | `mise.ci.toml`                                  | grouped  |
 
 - Major updates get a PR of their own. A Go CLI major is only listed on the dashboard for approval: it also changes the
   module path (`/v2` → `/v3`), which has to be edited by hand.
@@ -248,6 +249,11 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 - Closing a Renovate PR without merging it ignores that version.
 - To track another pinned version in the `Dockerfile`, put `# renovate: datasource=<datasource> depName=<name>` on the
   line right above its `ARG NAME=<version>`.
+
+### Rulesets
+
+The branch rules for `main` are kept in `.github/rulesets/*.json`. `task gh:rulesets:apply` creates or updates them
+on GitHub, matched by name; `task gh:rulesets:list` and `task gh:rulesets:check` show what applies.
 
 ### Secrets & Variables
 
