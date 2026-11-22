@@ -1,0 +1,4 @@
+# CI-only tools, loaded with MISE_ENV=ci (the checks workflow). Kept out of mise.toml
+# because the Dockerfile copies that file into the image as the system mise config.
+[tools]
+gitleaks = "8.30.1"

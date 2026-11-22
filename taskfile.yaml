@@ -3,6 +3,10 @@
 
 version: "3"
 
+includes:
+  gh:
+    taskfile: ./.github/taskfile.yaml
+
 tasks:
   default:
     desc: List available tasks

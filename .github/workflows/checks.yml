@@ -1,5 +1,5 @@
 ---
-name: feature
+name: checks
 
 on:
   push:
@@ -54,20 +54,24 @@ jobs:
         with:
           fail-on-error: true
 
-  gitguardian-scan:
-    name: gitguardian-scan
+  gitleaks:
+    name: gitleaks
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # fetch all history so multiple commits can be scanned
-      - name: scan
-        uses: GitGuardian/ggshield-action@v1
-        env:
-          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
-          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
-          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+          fetch-depth: 0 # scan the whole history; known findings are in .gitleaksignore
+          persist-credentials: false
+
+      # The version is pinned in mise.ci.toml, not mise.toml, which ships in the image.
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          mise_env: ci
+          install_args: gitleaks
+
+      - name: scan-for-secrets
+        run: gitleaks git . --redact --no-banner --verbose
