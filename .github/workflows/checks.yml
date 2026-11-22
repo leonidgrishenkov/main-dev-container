@@ -60,6 +60,10 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    # Loads mise.ci.toml, where the gitleaks version is pinned. It is kept out of mise.toml,
+    # which ships in the image. Set for the whole job so the gitleaks shim resolves it too.
+    env:
+      MISE_ENV: ci
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -67,10 +71,8 @@ jobs:
           fetch-depth: 0 # scan the whole history; known findings are in .gitleaksignore
           persist-credentials: false
 
-      # The version is pinned in mise.ci.toml, not mise.toml, which ships in the image.
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
-          mise_env: ci
           install_args: gitleaks
 
       - name: scan-for-secrets
