@@ -42,7 +42,7 @@
   customManagers: [
     {
       customType: 'regex',
-      description: 'Dockerfile ARGs annotated with a `# renovate:` comment (MISE_VERSION, GO_VERSION).',
+      description: 'Dockerfile ARGs annotated with a `# renovate:` comment (MISE_VERSION, GO_VERSION, SKILLS_VERSION, AGENT_SKILLS_VERSION).',
       managerFilePatterns: ['/(^|/)Dockerfile$/'],
       matchStrings: [
         '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG [A-Z_]+=(?<currentValue>\\S+)',

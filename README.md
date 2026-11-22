@@ -239,6 +239,7 @@ opens update PRs on Monday mornings (UTC) and keeps a **Dependency Dashboard** i
 | Tools in `mise.toml`                                              | `mise.toml`                                     | grouped  |
 | Go CLIs (`direnv`, `lazygit`, `fzf`, `shfmt`, `task`)             | `TOOLS` in the `go-builder` stage               | grouped  |
 | `MISE_VERSION`, `GO_VERSION`                                      | `Dockerfile` ARGs under a `# renovate:` comment | one each |
+| agent-skills release and the `skills` CLI that installs it        | `Dockerfile` ARGs under a `# renovate:` comment | one each |
 | Trivy used by the CI scans                                        | `.github/actions/install-trivy/action.yml`      | own      |
 | Gitleaks used by `checks.yml` (CI only, not shipped in the image) | `mise.ci.toml`                                  | grouped  |
 

@@ -177,6 +177,13 @@ ARG DOTFILES_REPO_URL=https://github.com/leonidgrishenkov/dotfiles.git
 # The resolved commit is printed in the build log and kept in /etc/devcr-dotfiles-sha.
 ARG DOTFILES_REF=main
 ARG XDG_DATA_HOME=${HOME}/.local/share
+# The skills CLI and the agent-skills release tag it installs for Claude Code. The CLI
+# reads `owner/repo@<tag>` as a tag pin only from 1.8.0 on; older versions take the tag
+# for a skill name and install main.
+# renovate: datasource=npm depName=skills
+ARG SKILLS_VERSION=1.9.0
+# renovate: datasource=github-tags depName=leonidgrishenkov/agent-skills
+ARG AGENT_SKILLS_VERSION=1.0.3
 
 WORKDIR ${DOTFILES_DIR}
 
@@ -205,7 +212,8 @@ RUN if [[ "${DOTFILES_REF}" =~ ^[0-9a-f]{40}$ ]]; then \
     && cat /tmp/stow-packages | xargs -I {} stow {} \
     && nvim --headless "+Lazy! restore" +qa \
     && rm -rf /tmp/sfw-* \
-    && npx -y github:leonidgrishenkov/agent-skills install --target claude \
+    && DISABLE_TELEMETRY=1 npx -y "skills@${SKILLS_VERSION}" add \
+        "leonidgrishenkov/agent-skills@${AGENT_SKILLS_VERSION}" -g -a claude-code --skill '*' -y \
     && bat cache --build
 
 # Overwrite Mason's prebuilt shfmt (built with Go 1.26.1, vuln stdlib) with the copy
