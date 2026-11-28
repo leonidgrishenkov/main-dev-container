@@ -9,7 +9,7 @@ ARG MISE_VERSION=v2026.11.12
 # base image to track. It runs natively ($BUILDPLATFORM) and cross-compiles for
 # $TARGETARCH: the arm64 release build goes through QEMU, and compiling five Go
 # programs under emulation is extremely slow.
-FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20261104-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS go-builder
+FROM --platform=$BUILDPLATFORM docker.io/debian:trixie-20261123-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS go-builder
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
@@ -89,7 +89,7 @@ RUN --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     done
 
 # Same pinned base as go-builder above.
-FROM docker.io/debian:trixie-20261104-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
+FROM docker.io/debian:trixie-20261123-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
 
 USER 0
 
