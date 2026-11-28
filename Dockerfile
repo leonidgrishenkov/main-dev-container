@@ -1,6 +1,6 @@
 # Pre-FROM ARGs are shared by every stage that re-declares them (bare `ARG NAME`).
 # renovate: datasource=github-releases depName=jdx/mise
-ARG MISE_VERSION=v2026.11.12
+ARG MISE_VERSION=v2026.11.14
 
 # The base image is pinned by tag and digest. The tag tells Renovate what to follow: newer
 # dated trixie-*-slim tags, never another Debian release (./apt-packages pins trixie
