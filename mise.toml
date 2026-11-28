@@ -8,7 +8,7 @@ neovim = "0.12.6"
 # prebuilts ship a stale Go stdlib. They are built from source in the Dockerfile's
 # go-builder stage.
 ripgrep = "15.2.0"
-bat = "0.26.1"
+bat = "0.27.0"
 yazi = "26.9.1"
 starship = "1.27.0"
 delta = "0.22.0"
