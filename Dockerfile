@@ -181,7 +181,7 @@ ARG XDG_DATA_HOME=${HOME}/.local/share
 # reads `owner/repo@<tag>` as a tag pin only from 1.8.0 on; older versions take the tag
 # for a skill name and install main.
 # renovate: datasource=npm depName=skills
-ARG SKILLS_VERSION=1.9.0
+ARG SKILLS_VERSION=1.9.1
 # renovate: datasource=github-tags depName=leonidgrishenkov/agent-skills
 ARG AGENT_SKILLS_VERSION=1.0.3
 
