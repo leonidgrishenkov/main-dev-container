@@ -7,7 +7,7 @@ neovim = "0.12.6"
 # Go-based CLIs (fzf/lazygit/task/direnv/shfmt) are NOT pinned here: their mise
 # prebuilts ship a stale Go stdlib. They are built from source in the Dockerfile's
 # go-builder stage.
-ripgrep = "15.2.0"
+ripgrep = "16.0.0"
 bat = "0.26.1"
 yazi = "26.9.1"
 starship = "1.27.0"
